@@ -7,6 +7,7 @@ from .views import (
     ProductListView,
     ProductRestoreView,
     ProductUpdateView,
+    ProductVariantDeleteView,
     ProductVariantListView,
     ProductVariantCreateView,
     ProductVariantUpdateView,
@@ -32,6 +33,7 @@ urlpatterns = [
     path("variants/", ProductVariantListView.as_view(), name="variant_list"),
     path("variants/add/", ProductVariantCreateView.as_view(), name="variant_create"),
     path("variants/<int:pk>/edit/", ProductVariantUpdateView.as_view(), name="variant_update"),
+    path("variants/<int:pk>/delete/", ProductVariantDeleteView.as_view(), name="variant_delete"),
 
     # Transactions
     path("transactions/", StockTransactionListView.as_view(), name="transaction_list"),

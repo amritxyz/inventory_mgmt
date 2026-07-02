@@ -4,6 +4,7 @@ from django.http import Http404, request
 from django.shortcuts import _get_queryset, render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import (
+    DeleteView,
     View,
     TemplateView,
     ListView,
@@ -35,7 +36,7 @@ class IndexView(TemplateView):
 
         return context
 
-# helper search
+# helper search, sort
 class Search:
     search_fields = []
 
@@ -54,6 +55,21 @@ class Search:
 
         return queryset
 
+class Sort:
+    allowed_sort_fields = {}
+    default_sort_field = "id"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        direction = self.request.GET.get("sort", "desc")
+        order_key = self.request.GET.get("order")
+
+        order_field = self.allowed_sort_fields.get(order_key, self.default_sort_field)
+        ordering = f"-{order_field}" if direction == "desc" else order_field
+
+        return queryset.order_by(ordering, "-id")
+
 class ProductCreateView(CreateView):
     model = Product
     form_class = ProductForm
@@ -62,7 +78,8 @@ class ProductCreateView(CreateView):
 
     def form_valid(self, form):
         messages.success(self.request, "Product created successfully")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        return redirect(f"{reverse_lazy('dashboard:variant_create')}?product={self.object.pk}")
 
 class ProductUpdateView(UpdateView):
         model = Product
@@ -92,41 +109,52 @@ class ProductRestoreView(View):
         referer = request.META.get("HTTP_REFERER")
         return redirect(referer)
 
-class ProductListView(Search, ListView):
+class ProductListView(Search, Sort, ListView):
     model = Product
     template_name = "dashboard/product_list.html"
     context_object_name = "products"
     paginate_by = 10
     search_fields = ["name"]
 
+    default_sort_field = "name"
+    allowed_sort_fields = {
+        "name": "name",
+        "variants": "variant_count"
+    }
+
     def get_queryset(self):
         return (
             super()
             .get_queryset()
             .annotate(variant_count=Count("variants"))
-            .order_by("name")
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["total_products"] = (
-            Product.all_objects.count()
-        )
+        context["total_products"] = Product.all_objects.count()
         return context
 
-class ProductVariantListView(Search, ListView):
+class ProductVariantListView(Search, Sort, ListView):
     model = ProductVariant
     template_name = "dashboard/productvariant_list.html"
     context_object_name = "variants"
     search_fields = ["name", "sku", "product__name"]
     paginate_by = 10
 
+    default_sort_field = "name"
+    allowed_sort_fields = {
+        "product_name": "product__name",
+        "variant": "name",
+        "sku": "sku",
+        "price": "price",
+        "stock": "current_stock"
+    }
+
     def get_queryset(self):
         return (
             super()
             .get_queryset()
             .select_related("product", "category")
-            .order_by("product__name", "name")
         )
 
 
@@ -136,9 +164,18 @@ class ProductVariantCreateView(CreateView):
     template_name = "dashboard/productvariant_form.html"
     success_url = reverse_lazy("dashboard:variant_list")
 
+    def get_initial(self):
+        initial = super().get_initial()
+        product_id = self.request.GET.get('product')
+        if product_id:
+            initial['product'] = product_id
+        return initial
+
     def form_valid(self, form):
         messages.success(self.request, "Variant created successfully.")
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        # Redirect to transaction creation with variant id
+        return redirect(f"{reverse_lazy('dashboard:transaction_create')}?variant={self.object.pk}")
 
 class ProductVariantUpdateView(UpdateView):
     model = ProductVariant
@@ -150,25 +187,51 @@ class ProductVariantUpdateView(UpdateView):
         messages.success(self.request, "Variant updated successfully")
         return super().form_valid(form)
 
-class StockTransactionListView(Search, ListView):
+class ProductVariantDeleteView(View):
+    def post(self, request, pk):
+        variant = get_object_or_404(ProductVariant.all_objects, pk=pk)
+        variant.soft_delete()
+        messages.success(request, "Variant deleted successfully.")
+        return redirect("dashboard:variant_list")
+
+class ProductVariantRestoreView(View):
+    def post(self, request, pk):
+        variant = get_object_or_404(ProductVariant.all_objects, pk=pk)
+        variant.restore()
+        messages.success(request, "Variant restored.")
+        referer = request.META.get("HTTP_REFERER")
+        return redirect(referer)
+
+class StockTransactionListView(Search, Sort, ListView):
     model = StockTransaction
     template_name = "dashboard/transaction_list.html"
     context_object_name = "transactions"
     paginate_by = 10
-    search_fields = ["variants", "transaction__type"]
+    search_fields = ["variant__name", "transaction_type"]
+
+    default_sort_field = "transaction_date"
+    allowed_sort_fields = {
+        "transaction_date": "transaction_date",
+        "variant": "variant__name",
+        "quantity": "quantity",
+        "transaction_type": "transaction_type"
+    }
 
     def get_queryset(self):
-        return (
-            super()
-            .get_queryset()
-            .order_by("variant")
-        )
+        return super().get_queryset().select_related("variant__product")
 
 class StockTransactionCreateView(CreateView):
     model = StockTransaction
     form_class = StockTransactionForm
     template_name = "dashboard/stocktransaction_form.html"
     success_url = reverse_lazy("dashboard:transaction_list")
+
+    def get_initial(self):
+        initial = super().get_initial()
+        variant_id = self.request.GET.get('variant')
+        if variant_id:
+            initial['variant'] = variant_id
+        return initial
 
     def form_valid(self, form):
         try:

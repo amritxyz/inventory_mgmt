@@ -38,7 +38,7 @@ class Category(BaseModel):
     description = models.TextField(blank=True)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['-created_at']
         verbose_name_plural = 'Categories'
 
     def __str__(self):
@@ -49,7 +49,7 @@ class Product(BaseModel):
     name = models.CharField(max_length=100, unique=True)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name
@@ -67,7 +67,7 @@ class ProductVariant(BaseModel):
     reorder_level = models.PositiveIntegerField(default=10)
 
     class Meta:
-        ordering = ['product__name', 'name']
+        ordering = ['-created_at']
         unique_together = [['product', 'name']]
         indexes = [
             models.Index(fields=['category']),
@@ -82,7 +82,7 @@ class ProductVariant(BaseModel):
         ]
 
     def __str__(self):
-        return f"{self.product.name} – {self.name}"
+        return f"{self.product.name} - {self.name}"
 
     @property
     def is_low_stock(self):
@@ -108,6 +108,13 @@ class StockTransaction(models.Model):
     transaction_date = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
 
+    ALLOWED_SORT_FIELDS = {
+        "transaction_date": "transaction_date",
+        "variant": "variant__name",
+        "quantity": "quantity",
+        "transaction_type": "transaction_type",
+    }
+
     class Meta:
         ordering = ['-transaction_date']
         indexes = [
@@ -115,7 +122,7 @@ class StockTransaction(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.get_transaction_type_display()} – {self.variant} (x{self.quantity})"
+        return f"{self.get_transaction_type_display()} - {self.variant} (x{self.quantity})"
 
     def clean(self):
         if self.transaction_type == self.TransactionType.OUT and self.quantity > self.variant.current_stock:
@@ -136,3 +143,14 @@ class StockTransaction(models.Model):
 
             variant.save(update_fields=['current_stock'])
             super().save(*args, **kwargs)
+    def get_queryset(self):
+        qs = super().get_queryset().select_related("variant__product")
+        direction = self.request.GET.get("sort", "desc")
+        order_key = self.request.GET.get("order")
+
+        order_field = self.ALLOWED_SORT_FIELDS.get(order_key, "transaction_date")
+
+        ordering = f"-{order_field}" if direction == "desc" else order_field
+        qs = qs.order_by(ordering, "id")
+
+        return qs

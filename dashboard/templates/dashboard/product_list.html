@@ -12,6 +12,19 @@
 
 {% include "dashboard/components/counter.html" with whichone="product" %}
 
+<form method="get" id="sort_form">
+    {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}" />{% endif %}
+    <input type="hidden" name="sort" id="sort_input" value="{{ request.GET.sort|default:'desc' }}" />
+
+    <label for="order_select">Sort by: </label>
+    <select name="order" id="order_select" onChange="this.form.submit()">
+        <option value="name" {% if request.GET.order == "name" or not request.GET.order %}selected{% endif %}>Product Name</option>
+        <option value="variants" {% if request.GET.order == "variants" %}selected{% endif %}>Variant Count</option>
+    </select>
+
+    <button id="sort_btn" type="submit">{{ request.GET.sort|default:"desc"|title }}</button>
+</form>
+
 <table>
     <thead>
         <tr>
@@ -29,6 +42,7 @@
             <td>{{ product.variant_count }}</td>
             <td>
                 <a href="{% url 'dashboard:product_update' product.pk %}">Edit</a>
+                <a href="{% url 'dashboard:variant_create' %}?product={{ product.pk }}">Add Variant</a>
                 <form method="POST" action="{% url 'dashboard:product_delete' product.pk %}" style="display:inline;">
                     {% csrf_token %}
                     <button type="submit" onClick="return confirm('Delete this product')">
@@ -42,6 +56,17 @@
         {% endfor %}
     </tbody>
 </table>
+
+<script>
+    document.getElementById("sort_btn").addEventListener("click", function (e) {
+        e.preventDefault()
+
+        const sortInput = document.getElementById("sort_input")
+        sortInput.value = sortInput.value === "desc" ? "asc" : "desc"
+
+        sortInput.form.submit()
+    })
+</script>
 
 <!-- components/pagination.html -->
 {% include "dashboard/components/pagination.html" %}
