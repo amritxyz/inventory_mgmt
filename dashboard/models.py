@@ -1,8 +1,7 @@
-from enum import unique
-from django.db import models, transaction
+from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum, Case, When, IntegerField
 
 
 # TODO: add meaningful comments :)
@@ -63,17 +62,21 @@ class ProductVariant(BaseModel):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     color = models.CharField(max_length=50, blank=True)
-    current_stock = models.PositiveIntegerField(default=0)
     reorder_level = models.PositiveIntegerField(default=10)
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = [['product', 'name']]
+
         indexes = [
             models.Index(fields=['category']),
             models.Index(fields=['is_deleted']),
         ]
+
         constraints = [
+            models.UniqueConstraint(
+                fields=['product', 'name'],
+                name='unique_variant_name_per_product'
+            ),
             models.UniqueConstraint(
                 fields=['sku'],
                 condition=Q(sku__isnull=False),
@@ -85,17 +88,33 @@ class ProductVariant(BaseModel):
         return f"{self.product.name} - {self.name}"
 
     @property
+    def current_stock(self):
+        result = self.transactions.aggregate(
+            stock = Sum(
+                Case(
+                    When(
+                        transaction_type = StockTransaction.TransactionType.IN,
+                        then=F("quantity"),
+                    ),
+                    When(
+                        transaction_type = StockTransaction.TransactionType.OUT,
+                        then = -F("quantity"),
+                    ),
+                    output_field = IntegerField(),
+                )
+            )
+        )
+        return result["stock"] or 0
+    @property
     def is_low_stock(self):
         return self.current_stock <= self.reorder_level
 
     def save(self, *args, **kwargs):
-        if not self.sku:
-            last_variant = ProductVariant.all_objects.order_by('-id').first()
-            next_id = (last_variant.id + 1) if last_variant else 1
-            self.sku = f"PV-{next_id:04d}"
-
         super().save(*args, **kwargs)
 
+        if not self.sku:
+            self.sku = f"PV-{self.pk:04d}"
+            super().save(update_fields=["sku"])
 
 class StockTransaction(models.Model):
     class TransactionType(models.TextChoices):
@@ -125,24 +144,15 @@ class StockTransaction(models.Model):
         return f"{self.get_transaction_type_display()} - {self.variant} (x{self.quantity})"
 
     def clean(self):
-        if self.transaction_type == self.TransactionType.OUT and self.quantity > self.variant.current_stock:
+        if (
+            self.transaction_type == self.TransactionType.OUT
+            and self.quantity > self.variant.current_stock
+        ):
             raise ValidationError("Insufficient stock")
 
     def save(self, *args, **kwargs):
         self.full_clean()
-        with transaction.atomic():
-            variant = ProductVariant.objects.select_for_update().get(pk=self.variant.pk)
-
-            if self.transaction_type == self.TransactionType.OUT and self.quantity > variant.current_stock:
-                raise ValidationError("Insufficient stock")
-
-            if self.transaction_type == self.TransactionType.IN:
-                variant.current_stock = F('current_stock') + self.quantity
-            else:
-                variant.current_stock = F('current_stock') - self.quantity
-
-            variant.save(update_fields=['current_stock'])
-            super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
     def get_queryset(self):
         qs = super().get_queryset().select_related("variant__product")
         direction = self.request.GET.get("sort", "desc")

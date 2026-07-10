@@ -1,5 +1,8 @@
+from dashboard.utils.actions import resolve_actions
 from django.contrib import messages
-from django.db.models import Q, Count, QuerySet
+from django.db import transaction
+from django.db.models import Q, Case, Count, QuerySet, Sum, When, F
+from django.db.models import IntegerField
 from django.http import Http404, request
 from django.shortcuts import _get_queryset, render, redirect, get_object_or_404
 from django.urls import reverse_lazy
@@ -21,6 +24,9 @@ from .forms import (
     StockTransactionForm
 )
 
+"""
+Helper classes / methods
+"""
 class IndexView(TemplateView):
     template_name = "dashboard/index.html"
 
@@ -36,7 +42,6 @@ class IndexView(TemplateView):
 
         return context
 
-# helper search, sort
 class Search:
     search_fields = []
 
@@ -70,6 +75,38 @@ class Sort:
 
         return queryset.order_by(ordering, "-id")
 
+class Action:
+    table = {}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        rows = []
+
+        for obj in context[self.context_object_name]:
+            rows.append({
+                "obj": obj,
+                "actions": resolve_actions(
+                    self.table["model_key"],
+                    self.table.get("actions", []),
+                    obj,
+                ),
+            })
+
+        self.table["colspan"] = (
+            1
+            + len(self.table["columns"])
+            + (1 if self.table.get("actions") else 0)
+        )
+
+        context["rows"] = rows
+        context["table"] = self.table
+
+        return context
+
+"""
+Views classes for dashboard_app
+"""
 class ProductCreateView(CreateView):
     model = Product
     form_class = ProductForm
@@ -109,7 +146,7 @@ class ProductRestoreView(View):
         referer = request.META.get("HTTP_REFERER")
         return redirect(referer)
 
-class ProductListView(Search, Sort, ListView):
+class ProductListView(Action, Search, Sort, ListView):
     model = Product
     template_name = "dashboard/product_list.html"
     context_object_name = "products"
@@ -120,6 +157,15 @@ class ProductListView(Search, Sort, ListView):
     allowed_sort_fields = {
         "name": "name",
         "variants": "variant_count"
+    }
+
+    table = {
+        "columns": [
+            {"key": "name", "label": "Product Name"},
+            {"key": "variant_count", "label": "Variants"},
+        ],
+        "actions": ["edit", "delete"],
+        "model_key": "product",
     }
 
     def get_queryset(self):
@@ -134,7 +180,7 @@ class ProductListView(Search, Sort, ListView):
         context["total_products"] = Product.all_objects.count()
         return context
 
-class ProductVariantListView(Search, Sort, ListView):
+class ProductVariantListView(Action, Search, Sort, ListView):
     model = ProductVariant
     template_name = "dashboard/productvariant_list.html"
     context_object_name = "variants"
@@ -147,7 +193,6 @@ class ProductVariantListView(Search, Sort, ListView):
         "variant": "name",
         "sku": "sku",
         "price": "price",
-        "stock": "current_stock"
     }
 
     def get_queryset(self):
@@ -155,8 +200,38 @@ class ProductVariantListView(Search, Sort, ListView):
             super()
             .get_queryset()
             .select_related("product", "category")
+            .annotate(
+                stock_balance = Sum(
+                    Case(
+                        When(
+                            transactions__transaction_type=StockTransaction.TransactionType.IN,
+                            then=F("transactions__quantity"),
+                        ),
+                        When(
+                            transactions__transaction_type=StockTransaction.TransactionType.OUT,
+                            then=-F("transactions__quantity"),
+                        ),
+                        output_field=IntegerField(),
+                    )
+                )
+            )
         )
 
+    table = {
+        "columns": [
+            {"key": "product", "label": "Product"},
+            {"key": "name", "label": "Variant"},
+            {"key": "sku", "label": "SKU"},
+            {"key": "price", "label": "Price"},
+            {"key": "stock_balance", "label": "Stock"},
+        ],
+        "actions": ["transact", "edit", "delete"],
+        "model_key": "variant",
+    }
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return context
 
 class ProductVariantCreateView(CreateView):
     model = ProductVariant
@@ -202,7 +277,7 @@ class ProductVariantRestoreView(View):
         referer = request.META.get("HTTP_REFERER")
         return redirect(referer)
 
-class StockTransactionListView(Search, Sort, ListView):
+class StockTransactionListView(Action, Search, Sort, ListView):
     model = StockTransaction
     template_name = "dashboard/transaction_list.html"
     context_object_name = "transactions"
@@ -217,8 +292,23 @@ class StockTransactionListView(Search, Sort, ListView):
         "transaction_type": "transaction_type"
     }
 
+    table = {
+        "columns": [
+            {"key": "variant", "label": "Variant"},
+            {"key": "transaction_type", "label": "Transaction Type"},
+            {"key": "quantity", "label": "Quantity"},
+            {"key": "transaction_date", "label": "Date"},
+        ],
+        "actions": ["edit", "delete"],
+        "model_key": "transaction",
+    }
+
     def get_queryset(self):
         return super().get_queryset().select_related("variant__product")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return context
 
 class StockTransactionCreateView(CreateView):
     model = StockTransaction
@@ -245,6 +335,23 @@ class StockTransactionCreateView(CreateView):
         except Exception as e:
             form.add_error(None, str(e))
             return self.form_invalid(form)
+
+class StockTransactionUpdateView(UpdateView):
+    model = StockTransaction
+    form_class = StockTransactionForm
+    template_name = "dashboard/stocktransaction_form.html"
+    success_url = reverse_lazy("dashboard:transaction_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Transaction updated successfully")
+        return super().form_valid(form)
+
+class StockTransactionDeleteView(View):
+    def post(self, request, pk):
+        transaction = get_object_or_404(StockTransaction.all_objects, pk=pk)
+        transaction.soft_delete()
+        messages.success(request, "Transaction deleted successfully.")
+        return redirect("dashboard:transaction_list")
 
 class TrashListView(Search, ListView):
     template_name = "dashboard/trash_list.html"
@@ -295,6 +402,7 @@ class TrashListView(Search, ListView):
 
         items.sort(key=lambda x: x['updated_at'], reverse=True)
         return items
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["total_deleted"] = (

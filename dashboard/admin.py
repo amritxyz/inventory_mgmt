@@ -52,7 +52,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
     )
     list_filter = ('category', SoftDeleteFilter, 'product')
     search_fields = ('name', 'sku', 'product__name')
-    list_editable = ('price', 'current_stock', 'reorder_level')
+    list_editable = ('price', 'reorder_level')
     readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (

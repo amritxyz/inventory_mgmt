@@ -7,80 +7,10 @@
 
 <a href="{% url 'dashboard:transaction_create' %}">+ Add New Transaction</a>
 
-<!-- components/search.html -->
-{% include "dashboard/components/search.html" with search_placeholder="Search transactions..."%}
-
-<form method="get" id="sort_form">
-    {% if request.GET.q %}
-        <input type="hidden" name="q" value="{{ request.GET.q }}" />
-    {% endif %}
-
-    <input type="hidden" name="sort" id="sort_input" value="{{ request.GET.sort|default:'desc' }}" />
-
-    <label for="order_select">Sort by: </label>
-    <select name="order" id="order_select" onChange="this.form.submit()">
-        <option value="transaction_date"
-                {% if request.GET.order == "transaction_date" or not request.GET.order %}selected{% endif %}>
-        Date
-        </option>
-        <option value="variant"
-                {% if request.GET.order == "variant" %}selected{% endif %}>
-        Variant
-        </option>
-        <option value="quantity"
-                {% if request.GET.order == "quantity" %}selected{% endif %}>
-        Quantity
-        </option>
-        <option value="transaction_type"
-                {% if request.GET.order == "transaction_type" %}selected{% endif %}>
-        Transaction Type
-        </option>
-    </select>
-
-    <button id="sort_btn" type="submit">
-        {{ request.GET.sort|default:"desc"|title }}
-    </button>
-</form>
-
 {% include "dashboard/components/counter.html" with whichone="transaction" %}
 
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Variant</th>
-            <th>Transaction Type</th>
-            <th>Quantity</th>
-            <th>Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for transaction in transactions %}
-        <tr>
-            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-            <td>{{ transaction.variant }}</td>
-            <td>{{ transaction.transaction_type }}</td>
-            <td>{{ transaction.quantity }}</td>
-            <td>{{ transaction.transaction_date }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="7">No transaction found.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% include "dashboard/components/table.html" with table=table %}
 
-<script>
-    document.getElementById("sort_btn").addEventListener("click", function (e) {
-        e.preventDefault()
-
-        const sortInput = document.getElementById("sort_input")
-        sortInput.value = sortInput.value === "desc" ? "asc" : "desc"
-
-        sortInput.form.submit()
-    })
-</script>
-
-<!-- components/pagination.html -->
 {% include "dashboard/components/pagination.html" %}
 
 {% endblock %}

@@ -12,6 +12,8 @@ from .views import (
     ProductVariantCreateView,
     ProductVariantUpdateView,
     RestoreItemView,
+    StockTransactionUpdateView,
+    StockTransactionDeleteView,
     StockTransactionListView,
     StockTransactionCreateView,
     TrashListView
@@ -38,6 +40,8 @@ urlpatterns = [
     # Transactions
     path("transactions/", StockTransactionListView.as_view(), name="transaction_list"),
     path("transactions/add/", StockTransactionCreateView.as_view(), name="transaction_create"),
+    path("transactions/<int:pk>/edit", StockTransactionUpdateView.as_view(), name="transaction_update"),
+    path("transactions/<int:pk>/delete", StockTransactionDeleteView.as_view(), name="transaction_delete"),
 
     # Trash
     path("trash/", TrashListView.as_view(), name="trash"),

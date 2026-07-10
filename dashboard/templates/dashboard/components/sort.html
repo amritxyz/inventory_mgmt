@@ -1,0 +1,34 @@
+<form method="get" id="sort_form">
+
+    {% if request.GET.q %}
+        <input type="hidden" name="q" value="{{ request.GET.q }}">
+    {% endif %}
+
+    <input
+        type="hidden"
+        id="sort_input"
+        name="sort"
+        value="{{ request.GET.sort|default:'desc' }}"
+    >
+
+    <label for="order_select">Sort by:</label>
+
+    <select name="order" id="order_select" onchange="this.form.submit()">
+        {% for col in table.columns %}
+            {% if not col.no_sort %}
+                <option
+                    value="{{ col.key }}"
+                    {% if request.GET.order == col.key or not request.GET.order and forloop.first %}
+                        selected
+                    {% endif %}
+                >
+                    {{ col.label }}
+                </option>
+            {% endif %}
+        {% endfor %}
+    </select>
+
+    <button id="sort_btn" type="submit">
+        {{ request.GET.sort|default:"desc"|title }}
+    </button>
+</form>
