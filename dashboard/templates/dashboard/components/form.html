@@ -1,0 +1,55 @@
+<div class="page-header">
+    <h1>{% if form.instance.pk %}Edit{% else %}Add New{% endif %} {{ whichone }}</h1>
+</div>
+
+{% if whichone == "Transaction" %}
+<div class="form-note">
+    <strong>Note:</strong> OUT transactions will reduce stock automatically.
+</div>
+{% endif %}
+
+<form method="post" class="form-card">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="form-errors">
+        {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="form-fields">
+        {% for field in form %}
+        <div class="form-group {% if field.errors %}has-error{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label">
+                {{ field.label }}
+                {% if field.field.required %}
+                    <span class="required">*</span>
+                {% endif %}
+            </label>
+
+            {{ field }}
+
+            {% if field.help_text %}
+                <p class="form-help">{{ field.help_text|safe }}</p>
+            {% endif %}
+
+            {% if field.errors %}
+                <div class="field-errors">
+                    {% for error in field.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="form-actions">
+        <a href="{% url theurl %}" class="btn btn-outline">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+            {% if form.instance.pk %}Update{% else %}Save{% endif %}
+        </button>
+    </div>
+</form>

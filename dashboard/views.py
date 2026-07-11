@@ -22,38 +22,80 @@ from .forms import (
     StockTransactionForm
 )
 
+import json
+
 """
 Helper classes / methods
 """
+
 class IndexView(TemplateView):
     template_name = "dashboard/index.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # OPTIMIZATION: Annotate stock to avoid N+1 database queries in the loop below
+        # stat cards
+        total_products = Product.objects.count()
+        total_variants = ProductVariant.objects.count()
+        total_transactions = StockTransaction.objects.count()
+
+        # low stock count
         variants = ProductVariant.objects.annotate(
             stock_balance=Sum(
                 Case(
-                    When(
-                        transactions__transaction_type=StockTransaction.TransactionType.IN,
-                        then=F("transactions__quantity"),
-                    ),
-                    When(
-                        transactions__transaction_type=StockTransaction.TransactionType.OUT,
-                        then=-F("transactions__quantity"),
-                    ),
+                    When(transactions__transaction_type=StockTransaction.TransactionType.IN, then=F("transactions__quantity")),
+                    When(transactions__transaction_type=StockTransaction.TransactionType.OUT, then=-F("transactions__quantity")),
                     output_field=IntegerField(),
                 ),
                 filter=Q(transactions__is_deleted=False)
             )
         )
+        low_stock_count = sum(1 for v in variants if (v.stock_balance or 0) <= v.reorder_level)
 
-        context["total_variants"] = variants.count()
-        context["low_stock_count"] = sum(
-            1 for variant in variants if (variant.stock_balance or 0) <= variant.reorder_level
+        # bar chart: stock by category
+        category_data = (
+            Category.objects.annotate(
+                total_stock=Sum(
+                    Case(
+                        When(variants__transactions__transaction_type=StockTransaction.TransactionType.IN,
+                             then=F("variants__transactions__quantity")),
+                        When(variants__transactions__transaction_type=StockTransaction.TransactionType.OUT,
+                             then=-F("variants__transactions__quantity")),
+                        output_field=IntegerField(),
+                    ),
+                    filter=Q(variants__transactions__is_deleted=False)
+                )
+            )
+            .filter(total_stock__isnull=False)
+            .order_by('-total_stock')[:6]
         )
+        category_labels = json.dumps([c.name for c in category_data])
+        category_values = json.dumps([c.total_stock or 0 for c in category_data])
 
+        # doughnut chart: quantities by type
+        tx_totals = (
+            StockTransaction.objects
+            .values('transaction_type')
+            .annotate(total_quantity=Sum('quantity'))
+            .order_by('transaction_type')
+        )
+        tx_labels = json.dumps([t['transaction_type'] for t in tx_totals])
+        tx_values = json.dumps([t['total_quantity'] or 0 for t in tx_totals])
+
+        # recent transactions [last 5]
+        recent_transactions = StockTransaction.objects.select_related('variant__product').order_by('-transaction_date')[:5]
+
+        context.update({
+            "total_products": total_products,
+            "total_variants": total_variants,
+            "total_transactions": total_transactions,
+            "low_stock_count": low_stock_count,
+            "category_labels": category_labels,
+            "category_values": category_values,
+            "tx_labels": tx_labels,
+            "tx_values": tx_values,
+            "recent_transactions": recent_transactions,
+        })
         return context
 
 class Search:

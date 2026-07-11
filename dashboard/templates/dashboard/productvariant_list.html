@@ -3,9 +3,11 @@
 {% block title %}Product Variants{% endblock %}
 
 {% block content %}
-<h1>Product Variants</h1>
 
-<a href="{% url 'dashboard:variant_create' %}">+ Add New Variant</a>
+<div class="page-header">
+    <h1>Product Variants</h1>
+    <a href="{% url 'dashboard:variant_create' %}" class="btn btn-primary">+ Add New Variant</a>
+</div>
 
 {% include "dashboard/components/counter.html" with whichone="variant" %}
 
