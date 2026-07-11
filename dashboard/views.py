@@ -15,11 +15,9 @@ from django.views.generic import (
     UpdateView
 )
 
-from .models import Category, StockTransaction
+from .models import Category, StockTransaction, Product, ProductVariant
 from .forms import (
-    Product,
     ProductForm,
-    ProductVariant,
     ProductVariantForm,
     StockTransactionForm
 )
@@ -33,11 +31,27 @@ class IndexView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        variants = ProductVariant.objects.all()
+        # OPTIMIZATION: Annotate stock to avoid N+1 database queries in the loop below
+        variants = ProductVariant.objects.annotate(
+            stock_balance=Sum(
+                Case(
+                    When(
+                        transactions__transaction_type=StockTransaction.TransactionType.IN,
+                        then=F("transactions__quantity"),
+                    ),
+                    When(
+                        transactions__transaction_type=StockTransaction.TransactionType.OUT,
+                        then=-F("transactions__quantity"),
+                    ),
+                    output_field=IntegerField(),
+                ),
+                filter=Q(transactions__is_deleted=False)
+            )
+        )
 
         context["total_variants"] = variants.count()
         context["low_stock_count"] = sum(
-            1 for variant in variants if variant.is_low_stock
+            1 for variant in variants if (variant.stock_balance or 0) <= variant.reorder_level
         )
 
         return context
@@ -47,15 +61,12 @@ class Search:
 
     def get_queryset(self):
         queryset = super().get_queryset()
-
         query = self.request.GET.get("q")
 
         if query:
             q_object = Q()
-
             for field in self.search_fields:
                 q_object |= Q(**{f"{field}__icontains": query})
-
             queryset = queryset.filter(q_object)
 
         return queryset
@@ -66,7 +77,6 @@ class Sort:
 
     def get_queryset(self):
         queryset = super().get_queryset()
-
         direction = self.request.GET.get("sort", "desc")
         order_key = self.request.GET.get("order")
 
@@ -80,7 +90,6 @@ class Action:
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         rows = []
 
         for obj in context[self.context_object_name]:
@@ -119,17 +128,17 @@ class ProductCreateView(CreateView):
         return redirect(f"{reverse_lazy('dashboard:variant_create')}?product={self.object.pk}")
 
 class ProductUpdateView(UpdateView):
-        model = Product
-        form_class = ProductForm
-        template_name = "dashboard/product_form.html"
-        success_url = reverse_lazy("dashboard:product_list")
+    model = Product
+    form_class = ProductForm
+    template_name = "dashboard/product_form.html"
+    success_url = reverse_lazy("dashboard:product_list")
 
-        def get_queryset(self):
-            return Product.all_objects
+    def get_queryset(self):
+        return Product.all_objects
 
-        def form_valid(self, form):
-            messages.success(self.request, "Product updated successfully.")
-            return super().form_valid(form)
+    def form_valid(self, form):
+        messages.success(self.request, "Product updated successfully.")
+        return super().form_valid(form)
 
 class ProductDeleteView(View):
     def post(self, request, pk):
@@ -212,7 +221,8 @@ class ProductVariantListView(Action, Search, Sort, ListView):
                             then=-F("transactions__quantity"),
                         ),
                         output_field=IntegerField(),
-                    )
+                    ),
+                    filter=Q(transactions__is_deleted=False)
                 )
             )
         )
@@ -249,7 +259,6 @@ class ProductVariantCreateView(CreateView):
     def form_valid(self, form):
         messages.success(self.request, "Variant created successfully.")
         response = super().form_valid(form)
-        # Redirect to transaction creation with variant id
         return redirect(f"{reverse_lazy('dashboard:transaction_create')}?variant={self.object.pk}")
 
 class ProductVariantUpdateView(UpdateView):
@@ -304,11 +313,18 @@ class StockTransactionListView(Action, Search, Sort, ListView):
     }
 
     def get_queryset(self):
-        return super().get_queryset().select_related("variant__product")
+        qs = super().get_queryset().select_related("variant__product")
+
+        direction = self.request.GET.get("sort", "desc")
+        order_key = self.request.GET.get("order")
+
+        order_field = self.allowed_sort_fields.get(order_key, self.default_sort_field)
+
+        ordering = f"-{order_field}" if direction == "desc" else order_field
+        return qs.order_by(ordering, "id")
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        return context
+        return super().get_context_data(**kwargs)
 
 class StockTransactionCreateView(CreateView):
     model = StockTransaction
@@ -372,6 +388,7 @@ class TrashListView(Search, ListView):
                 "id": p.id,
                 "type": "product",
                 "name": p.name,
+                "stock": "",
                 "updated_at": p.updated_at,
                 "obj": p
             } for p in qs])
@@ -384,6 +401,7 @@ class TrashListView(Search, ListView):
                 "id": v.id,
                 "type": "variant",
                 "name": f"{v.product.name} - {v.name}",
+                "stock": "",
                 "updated_at": v.updated_at,
                 "obj": v
             } for v in qs])
@@ -396,6 +414,21 @@ class TrashListView(Search, ListView):
                 "id": c.id,
                 "type": "category",
                 "name": c.name,
+                "stock": "",
+                "updated_at": c.updated_at,
+                "obj": c
+            } for c in qs])
+
+        if not type_filter or type_filter == "transaction":
+            qs = StockTransaction.all_objects.filter(is_deleted=True)
+            if query:
+                # FIX: StockTransaction doesn't have a 'name' field, search by variant name or notes
+                qs = qs.filter(Q(variant__name__icontains=query) | Q(notes__icontains=query))
+            items.extend([{
+                "id": c.id,
+                "type": "transaction",
+                "name": str(c.variant),
+                "stock": c.quantity,
                 "updated_at": c.updated_at,
                 "obj": c
             } for c in qs])
@@ -422,6 +455,8 @@ class RestoreItemView(View):
                 item = ProductVariant.all_objects.get(pk=pk)
             elif item_type == "category":
                 item = Category.all_objects.get(pk=pk)
+            elif item_type == "transaction":
+                item = StockTransaction.all_objects.get(pk=pk)
             else:
                 raise Http404
             item.restore()
@@ -439,6 +474,8 @@ class PermanentDelete(View):
                 item = ProductVariant.all_objects.get(pk=pk)
             elif item_type == "category":
                 item = Category.all_objects.get(pk=pk)
+            elif item_type == "transaction":
+                item = StockTransaction.all_objects.get(pk=pk)
             else:
                 raise Http404
             item.delete()
@@ -446,4 +483,3 @@ class PermanentDelete(View):
         except Exception as e:
             messages.error(request, "Error deleting item.")
         return redirect("dashboard:trash")
-

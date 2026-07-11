@@ -11,7 +11,8 @@
     <a href="{% url 'dashboard:trash' %}" class="btn {% if not type_filter %}active{% endif %}">All</a>
     <a href="{% url 'dashboard:trash' %}?type=product" class="btn {% if type_filter == 'product' %}active{% endif %}">Products</a>
     <a href="{% url 'dashboard:trash' %}?type=variant" class="btn {% if type_filter == 'variant' %}active{% endif %}">Variants</a>
-    <a href="{% url 'dashboard:trash' %}?type=category" class="btn {% if type_filter == 'category' %}active{% endif %}">Categories</a>
+    <a href="{% url 'dashboard:trash' %}?type=transaction" class="btn {% if type_filter == 'transaction' %}active{% endif %}">Transactions</a>
+    {#<a href="{% url 'dashboard:trash' %}?type=category" class="btn {% if type_filter == 'category' %}active{% endif %}">Categories</a>#}
 </div>
 
 {% include "dashboard/components/counter.html" with whichone="item" %}
@@ -22,6 +23,7 @@
             <th>#</th>
             <th>Type</th>
             <th>Name</th>
+            <th>Stock</th>
             <th>Deleted At</th>
             <th>Actions</th>
         </tr>
@@ -32,6 +34,7 @@
             <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
             <td><span class="badge">{{ item.type|upper }}</span></td>
             <td>{{ item.name }}</td>
+            <td>{{ item.stock }}</td>
             <td>{{ item.updated_at|date:"d M Y H:i" }}</td>
             <td>
                 <form method="post" action="{% url 'dashboard:restore_item' item.type item.id %}" style="display:inline;">
