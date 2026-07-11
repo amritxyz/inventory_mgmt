@@ -16,7 +16,7 @@ class ProductVariantForm(forms.ModelForm):
             "description",
             "price",
             "color",
-            "current_stock",
+            # "current_stock",
             "reorder_level",
         ]
 

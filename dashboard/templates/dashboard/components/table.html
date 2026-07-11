@@ -1,0 +1,63 @@
+{% load dynamic %}
+
+<table>
+    <thead>
+        <tr>
+            <td colspan="{{ table.colspan }}">
+                <div class="search_and_sort">
+                    {% include "dashboard/components/sort.html" %}
+                    {% include "dashboard/components/search.html" %}
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <th>#</th>
+
+            {% for col in table.columns %}
+                <th>{{ col.label }}</th>
+            {% endfor %}
+
+            {% if table.actions %}
+                <th>Actions</th>
+            {% endif %}
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+
+            {% for col in table.columns %}
+                <td>{{ row.obj|get_attr:col.key }}</td>
+            {% endfor %}
+
+            {% if table.actions %}
+            <td>
+                {% for action in row.actions %}
+                    {% if action.method == "post" %}
+                    <form method="post" action="{{ action.url }}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit">{{ action.label }}</button>
+                    </form>
+                    {% else %}
+                    <a href="{{ action.url }}">{{ action.label }}</a>
+                    {% endif %}
+                {% endfor %}
+            </td>
+            {% endif %}
+        </tr>
+
+        {# TODO do something like with the views way. #}
+        {# <a href="{% url 'dashboard:transaction_create' %}?variant={{ variant.pk }}">Transact</a> #}
+
+        {% empty %}
+        <tr>
+            <td colspan="{{ table.colspan }}">
+                No data found.
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

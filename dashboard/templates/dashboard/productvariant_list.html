@@ -7,81 +7,10 @@
 
 <a href="{% url 'dashboard:variant_create' %}">+ Add New Variant</a>
 
-<!-- components/search.html -->
-{% include "dashboard/components/search.html" with search_placeholder="Search variants..." %}
-
 {% include "dashboard/components/counter.html" with whichone="variant" %}
 
-<form method="get" id="sort_form">
-    {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}" />{% endif %}
-    <input type="hidden" name="sort" id="sort_input" value="{{ request.GET.sort|default:'desc' }}" />
+{% include "dashboard/components/table.html" with table=table %}
 
-    <label for="order_select">Sort by: </label>
-    <select name="order" id="order_select" onChange="this.form.submit()">
-        <option value="product" {% if request.GET.order == "product" %}selected{% endif %}>Product</option>
-        <option value="variant" {% if request.GET.order == "variant" %}selected{% endif %}>Variant Name</option>
-        <option value="sku" {% if request.GET.order == "sku" %}selected{% endif %}>SKU</option>
-        <option value="price" {% if request.GET.order == "price" %}selected{% endif %}>Price</option>
-        <option value="stock" {% if request.GET.order == "stock" %}selected{% endif %}>Stock Balance</option>
-    </select>
-
-    <button id="sort_btn" type="submit">{{ request.GET.sort|default:"desc"|title }}</button>
-</form>
-
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Product</th>
-            <th>Variant</th>
-            <th>SKU</th>
-            <th>Price</th>
-            <th>Stock</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for variant in variants %}
-        <tr>
-            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-            <td>{{ variant.product }}</td>
-            <td>{{ variant.name }}</td>
-            <td>{{ variant.sku }}</td>
-            <td>Rs. {{ variant.price }}</td>
-            <td class="{% if variant.is_low_stock %}low-stock{% endif %}">
-                {{ variant.current_stock }}
-            </td>
-            <td>{{ variant.is_deleted|yesno:"Deleted,Active" }}</td>
-            <td>
-                <a href="{% url 'dashboard:variant_update' variant.pk %}">Edit</a>
-                <a href="{% url 'dashboard:transaction_create' %}?variant={{ variant.pk }}">Add Transaction</a>
-                <form method="POST" action="{% url 'dashboard:variant_delete' variant.pk %}" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" onClick="return confirm('Delete this variant')">
-                        Delete
-                    </button>
-                </form>
-            </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="7">No variants found.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<script>
-    document.getElementById("sort_btn").addEventListener("click", function (e) {
-        e.preventDefault()
-
-        const sortInput = document.getElementById("sort_input")
-        sortInput.value = sortInput.value === "desc" ? "asc" : "desc"
-
-        sortInput.form.submit()
-    })
-</script>
-
-<!-- components/pagination.html -->
 {% include "dashboard/components/pagination.html" %}
 
 {% endblock %}

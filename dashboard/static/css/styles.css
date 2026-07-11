@@ -1,0 +1,8 @@
+body { font-family: Arial, sans-serif; margin: 20px; }
+table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+th { background-color: #f4f4f4; }
+.low-stock { color: red; font-weight: bold; }
+.nav { margin-bottom: 20px; }
+.nav a { margin-right: 15px; }
+.search_and_sort { display: flex; align-items: center; justify-content: space-between; }
