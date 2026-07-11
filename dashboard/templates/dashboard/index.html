@@ -1,14 +1,206 @@
 {% extends 'dashboard/base.html' %}
+{% load static %}
 
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<h1>Inventory Dashboard</h1>
-<p>Welcome to simple inventory system.</p>
 
-<h2>Quick Stats</h2>
-<ul>
-    <li>Total Variants: {{ total_variants }}</li>
-    <li>Low Stock Items: {{ low_stock_count }}</li>
-</ul>
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">Overview of your inventory system</p>
+    </div>
+</div>
+
+{# cards #}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Products</div>
+        <div class="stat-value">{{ total_products }}</div>
+        {#<div class="stat-icon"></div>#}
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Variants</div>
+        <div class="stat-value">{{ total_variants }}</div>
+        {#<div class="stat-icon"></div>#}
+    </div>
+    <div class="stat-card stat-card-warning">
+        <div class="stat-label">Low Stock Items</div>
+        <div class="stat-value">{{ low_stock_count }}</div>
+        {#<div class="stat-icon"></div>#}
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Transactions</div>
+        <div class="stat-value">{{ total_transactions }}</div>
+        {#<div class="stat-icon"></div>#}
+    </div>
+</div>
+
+{# charts: bar and doughnut #}
+<div class="charts-grid">
+    <div class="chart-card">
+        <div class="chart-header">
+            <h3>Stock by Category</h3>
+            <span class="chart-subtitle">Top 6 categories</span>
+        </div>
+        <div class="chart-body">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-card">
+        <div class="chart-header">
+            <h3>Transaction Types</h3>
+            <span class="chart-subtitle">Stock In vs Stock Out</span>
+        </div>
+        <div class="chart-body chart-body-sm">
+            <canvas id="txChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{# recent transactions #}
+<div class="recent-section">
+    <div class="section-header">
+        <h3>Recent Transactions</h3>
+        <a href="{% url 'dashboard:transaction_list' %}" class="view-all-link">View all →</a>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Variant</th>
+                    <th>Type</th>
+                    <th>Quantity</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in recent_transactions %}
+                <tr>
+                    <td>
+                        <span class="tx-variant">{{ tx.variant.product.name }}</span>
+                        <span class="tx-separator">·</span>
+                        <span class="tx-name">{{ tx.variant.name }}</span>
+                    </td>
+                    <td>
+                        <span class="badge {% if tx.transaction_type == 'IN' %}badge-in{% else %}badge-out{% endif %}">
+                            {{ tx.get_transaction_type_display }}
+                        </span>
+                    </td>
+                    <td class="cell-muted">{{ tx.quantity }}</td>
+                    <td class="cell-muted">{{ tx.transaction_date|date:"d M Y, H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="empty-state">No transactions yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{# chart.js via CDN #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    {# monochrome palette #}
+    const monoPalette = [
+        'rgba(17, 17, 17, 0.85)',
+        'rgba(60, 60, 60, 0.85)',
+        'rgba(100, 100, 100, 0.85)',
+        'rgba(140, 140, 140, 0.85)',
+        'rgba(170, 170, 170, 0.85)',
+        'rgba(200, 200, 200, 0.85)',
+    ];
+
+    const monoBorders = monoPalette.map(c => c.replace('0.85', '1'));
+
+    {# bar chart: stocks by category #}
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ category_labels|safe }},
+            datasets: [{
+                label: 'Stock',
+                data: {{ category_values|safe }},
+                backgroundColor: monoPalette,
+                borderColor: monoBorders,
+                borderWidth: 1,
+                borderRadius: 4,
+                maxBarThickness: 40,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#111111',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    padding: 10,
+                    cornerRadius: 4,
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f0f0f0', drawBorder: false },
+                    ticks: { color: '#888888', font: { size: 11 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#555555', font: { size: 11 } }
+                }
+            }
+        }
+    });
+
+    {# doughnut chart: transaction types #}
+    const txCtx = document.getElementById('txChart').getContext('2d');
+    new Chart(txCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ tx_labels|safe }},
+            datasets: [{
+                data: {{ tx_values|safe }},
+                backgroundColor: [
+                    'rgba(17, 17, 17, 0.85)',
+                    'rgba(160, 160, 160, 0.85)',
+                ],
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#555555',
+                        font: { size: 12 },
+                        padding: 16,
+                        usePointStyle: true,
+                        pointStyleWidth: 8,
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#111111',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    padding: 10,
+                    cornerRadius: 4,
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

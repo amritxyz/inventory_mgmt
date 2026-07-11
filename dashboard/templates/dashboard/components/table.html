@@ -1,63 +1,72 @@
 {% load dynamic %}
 
-<table>
-    <thead>
-        <tr>
-            <td colspan="{{ table.colspan }}">
-                <div class="search_and_sort">
-                    {% include "dashboard/components/sort.html" %}
-                    {% include "dashboard/components/search.html" %}
-                </div>
-            </td>
-        </tr>
+<div class="table-container">
+    <!-- Toolbar for Search & Sort -->
+    <div class="table-toolbar">
+        {% include "dashboard/components/sort.html" %}
+        {% include "dashboard/components/search.html" %}
+    </div>
 
-        <tr>
-            <th>#</th>
-
-            {% for col in table.columns %}
-                <th>{{ col.label }}</th>
-            {% endfor %}
-
-            {% if table.actions %}
-                <th>Actions</th>
-            {% endif %}
-        </tr>
-    </thead>
-
-    <tbody>
-        {% for row in rows %}
-        <tr>
-            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-
-            {% for col in table.columns %}
-                <td>{{ row.obj|get_attr:col.key }}</td>
-            {% endfor %}
-
-            {% if table.actions %}
-            <td>
-                {% for action in row.actions %}
-                    {% if action.method == "post" %}
-                    <form method="post" action="{{ action.url }}" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit">{{ action.label }}</button>
-                    </form>
-                    {% else %}
-                    <a href="{{ action.url }}">{{ action.label }}</a>
-                    {% endif %}
+    <!-- Actual Data Table -->
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                {% for col in table.columns %}
+                    <th>{{ col.label }}</th>
                 {% endfor %}
-            </td>
-            {% endif %}
-        </tr>
+                {% if table.actions %}
+                    <th class="text-right actions-col"></th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="cell-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
 
-        {# TODO do something like with the views way. #}
-        {# <a href="{% url 'dashboard:transaction_create' %}?variant={{ variant.pk }}">Transact</a> #}
+                {% for col in table.columns %}
+                    <td>{{ row.obj|get_attr:col.key }}</td>
+                {% endfor %}
 
-        {% empty %}
-        <tr>
-            <td colspan="{{ table.colspan }}">
-                No data found.
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                {% if table.actions %}
+                <td class="text-right">
+                    <div class="dropdown">
+                        <button type="button" class="dropdown-trigger" aria-label="Open menu">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="5" r="1"></circle>
+                                <circle cx="12" cy="12" r="1"></circle>
+                                <circle cx="12" cy="19" r="1"></circle>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            {% for action in row.actions %}
+                                {% if action.label == 'Delete' %}
+                                    <div class="dropdown-separator"></div>
+                                {% endif %}
+                                {% if action.method == "post" %}
+                                <form method="post" action="{{ action.url }}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item {% if action.label == 'Delete' %}dropdown-item-danger{% endif %}">
+                                        {{ action.label }}
+                                    </button>
+                                </form>
+                                {% else %}
+                                <a href="{{ action.url }}" class="dropdown-item">{{ action.label }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="{{ table.colspan }}" class="empty-state">
+                    <p>No data found.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

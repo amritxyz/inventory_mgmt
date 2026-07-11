@@ -3,16 +3,7 @@
 {% block title %}New Stock Transaction{% endblock %}
 
 {% block content %}
-<h1>New Stock Transaction</h1>
 
-<form method="post" onsubmit="return confirm('Record transaction?')">
-    {% csrf_token %}
-    <table>
-        {{ form.as_table }}
-    </table>
-    <br>
-    <button type="submit" >Record Transaction</button>
-</form>
+{% include 'dashboard/components/form.html' with whichone="Transaction" theurl="dashboard:transaction_list" %}
 
-<p><strong>Note:</strong> OUT transactions will reduce stock automatically.</p>
 {% endblock %}

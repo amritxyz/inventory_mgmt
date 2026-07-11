@@ -3,15 +3,14 @@
 {% block title %}Products{% endblock %}
 
 {% block content %}
+<div class="page-header">
+    <h1>Products</h1>
+    <a href="{% url 'dashboard:product_create' %}" class="btn btn-primary">+ Add New Product</a>
+</div>
 
-<h1>Product</h1>
-
-<a href="{% url 'dashboard:product_create' %}">+ Add New Product</a>
-
-{% include "dashboard/components/counter.html" with whichone="product" %}
+{% include "dashboard/components/counter.html" with whichone="product" theurl="dashboard:product_list" %}
 
 {% include "dashboard/components/table.html" with table=table %}
 
 {% include "dashboard/components/pagination.html" %}
-
 {% endblock %}

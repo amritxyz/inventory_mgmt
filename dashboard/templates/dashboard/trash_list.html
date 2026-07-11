@@ -3,56 +3,73 @@
 
 {% block content %}
 {# <h1>Trash <small>({{ total_deleted }} items)</small></h1> #}
-<h1>Trash</h1>
+<div class="page-header">
+    <h1>Trash</h1>
+</div>
 
-{% include "dashboard/components/search.html" with search_placeholder="Search trash..." %}
-
-<div class="mb-4">
-    <a href="{% url 'dashboard:trash' %}" class="btn {% if not type_filter %}active{% endif %}">All</a>
-    <a href="{% url 'dashboard:trash' %}?type=product" class="btn {% if type_filter == 'product' %}active{% endif %}">Products</a>
-    <a href="{% url 'dashboard:trash' %}?type=variant" class="btn {% if type_filter == 'variant' %}active{% endif %}">Variants</a>
-    <a href="{% url 'dashboard:trash' %}?type=transaction" class="btn {% if type_filter == 'transaction' %}active{% endif %}">Transactions</a>
-    {#<a href="{% url 'dashboard:trash' %}?type=category" class="btn {% if type_filter == 'category' %}active{% endif %}">Categories</a>#}
+<div class="filter-tabs">
+    <a href="{% url 'dashboard:trash' %}" class="filter-tab {% if not type_filter %}active{% endif %}">All</a>
+    <a href="{% url 'dashboard:trash' %}?type=product" class="filter-tab {% if type_filter == 'product' %}active{% endif %}">Products</a>
+    <a href="{% url 'dashboard:trash' %}?type=variant" class="filter-tab {% if type_filter == 'variant' %}active{% endif %}">Variants</a>
+    <a href="{% url 'dashboard:trash' %}?type=transaction" class="filter-tab {% if type_filter == 'transaction' %}active{% endif %}">Transactions</a>
 </div>
 
 {% include "dashboard/components/counter.html" with whichone="item" %}
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Type</th>
-            <th>Name</th>
-            <th>Stock</th>
-            <th>Deleted At</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in trash_items %}
-        <tr>
-            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-            <td><span class="badge">{{ item.type|upper }}</span></td>
-            <td>{{ item.name }}</td>
-            <td>{{ item.stock }}</td>
-            <td>{{ item.updated_at|date:"d M Y H:i" }}</td>
-            <td>
-                <form method="post" action="{% url 'dashboard:restore_item' item.type item.id %}" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-success">Restore</button>
-                </form>
-                <form method="post" action="{% url 'dashboard:permanent_delete' item.type item.id %}" style="display:inline;"
-                      onsubmit="return confirm('Permanently delete this item? This action cannot be undone.')">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-danger">Delete Forever</button>
-                </form>
-            </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="5">Trash is empty.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Stock</th>
+                <th>Deleted At</th>
+                <th class="text-right actions-col"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in trash_items %}
+            <tr>
+                <td class="cell-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                <td><span class="badge">{{ item.type|title }}</span></td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.stock|default:"-" }}</td>
+                <td>{{ item.updated_at|date:"d M Y H:i" }}</td>
+                <td class="text-right">
+                    <div class="dropdown">
+                        <button type="button" class="dropdown-trigger" aria-label="Open menu">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="5" r="1"></circle>
+                                <circle cx="12" cy="12" r="1"></circle>
+                                <circle cx="12" cy="19" r="1"></circle>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <form method="post" action="{% url 'dashboard:restore_item' item.type item.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">Restore</button>
+                            </form>
+                            <div class="dropdown-separator"></div>
+                            <form method="post" action="{% url 'dashboard:permanent_delete' item.type item.id %}"
+                                  onsubmit="return confirm('Permanently delete this item? This action cannot be undone.')">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item dropdown-item-danger">Delete Forever</button>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="empty-state">
+                    <p>Trash is empty.</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
 {% include "dashboard/components/pagination.html" %}
 {% endblock %}

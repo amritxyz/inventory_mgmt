@@ -1,5 +1,4 @@
-<form method="get" id="sort_form">
-
+<form method="get" id="sort_form" class="sort-form">
     {% if request.GET.q %}
         <input type="hidden" name="q" value="{{ request.GET.q }}">
     {% endif %}
@@ -11,24 +10,23 @@
         value="{{ request.GET.sort|default:'desc' }}"
     >
 
-    <label for="order_select">Sort by:</label>
+    <div class="sort-controls">
+        <label for="order_select" class="sort-label">Sort by:</label>
 
-    <select name="order" id="order_select" onchange="this.form.submit()">
-        {% for col in table.columns %}
-            {% if not col.no_sort %}
-                <option
-                    value="{{ col.key }}"
-                    {% if request.GET.order == col.key or not request.GET.order and forloop.first %}
-                        selected
-                    {% endif %}
-                >
-                    {{ col.label }}
-                </option>
+        <select name="order" id="order_select" class="sort-select" onchange="this.form.submit()">
+            {% for col in table.columns %}
+                {% if not col.no_sort %}
+                    <option value="{{ col.key }}"{% if request.GET.order == col.key or not request.GET.order and forloop.first %} selected{% endif %}>{{ col.label }}</option>
+                {% endif %}
+            {% endfor %}
+        </select>
+
+        <button id="sort_btn" type="submit" class="btn btn-outline sort-dir-btn" title="Toggle sort direction">
+            {% if request.GET.sort == 'asc' %}
+                &#8593; {# Up Arrow #}
+            {% else %}
+                &#8595; {# Down Arrow #}
             {% endif %}
-        {% endfor %}
-    </select>
-
-    <button id="sort_btn" type="submit">
-        {{ request.GET.sort|default:"desc"|title }}
-    </button>
+        </button>
+    </div>
 </form>
