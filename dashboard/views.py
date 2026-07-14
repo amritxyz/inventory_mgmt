@@ -122,6 +122,7 @@ class Sort:
         direction = self.request.GET.get("sort", "desc")
         order_key = self.request.GET.get("order")
 
+        # Looks up the key sent from the frontend table
         order_field = self.allowed_sort_fields.get(order_key, self.default_sort_field)
         ordering = f"-{order_field}" if direction == "desc" else order_field
 
@@ -205,15 +206,18 @@ class ProductListView(Action, Search, Sort, ListView):
     search_fields = ["name"]
 
     default_sort_field = "name"
+
     allowed_sort_fields = {
         "name": "name",
-        "variants": "variant_count"
+        "variant_count": "variant_count",
+        "date": "created_at"
     }
 
     table = {
         "columns": [
             {"key": "name", "label": "Product Name"},
             {"key": "variant_count", "label": "Variants"},
+            {"key": "created_at", "label": "Date"},
         ],
         "actions": ["edit", "delete"],
         "model_key": "product",
@@ -239,11 +243,27 @@ class ProductVariantListView(Action, Search, Sort, ListView):
     paginate_by = 10
 
     default_sort_field = "name"
+
     allowed_sort_fields = {
-        "product_name": "product__name",
-        "variant": "name",
+        "product": "product__name",
+        "name": "name",
         "sku": "sku",
         "price": "price",
+        "stock_balance": "stock_balance",
+        "date": "created_at"
+    }
+
+    table = {
+        "columns": [
+            {"key": "product", "label": "Product"},
+            {"key": "name", "label": "Variant"},
+            {"key": "sku", "label": "SKU"},
+            {"key": "price", "label": "Price"},
+            {"key": "stock_balance", "label": "Stock"},
+            {"key": "created_at", "label": "Date"},
+        ],
+        "actions": ["transact", "edit", "delete"],
+        "model_key": "variant",
     }
 
     def get_queryset(self):
@@ -268,18 +288,6 @@ class ProductVariantListView(Action, Search, Sort, ListView):
                 )
             )
         )
-
-    table = {
-        "columns": [
-            {"key": "product", "label": "Product"},
-            {"key": "name", "label": "Variant"},
-            {"key": "sku", "label": "SKU"},
-            {"key": "price", "label": "Price"},
-            {"key": "stock_balance", "label": "Stock"},
-        ],
-        "actions": ["transact", "edit", "delete"],
-        "model_key": "variant",
-    }
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -355,15 +363,7 @@ class StockTransactionListView(Action, Search, Sort, ListView):
     }
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("variant__product")
-
-        direction = self.request.GET.get("sort", "desc")
-        order_key = self.request.GET.get("order")
-
-        order_field = self.allowed_sort_fields.get(order_key, self.default_sort_field)
-
-        ordering = f"-{order_field}" if direction == "desc" else order_field
-        return qs.order_by(ordering, "id")
+        return super().get_queryset().select_related("variant__product")
 
     def get_context_data(self, **kwargs):
         return super().get_context_data(**kwargs)
@@ -464,7 +464,6 @@ class TrashListView(Search, ListView):
         if not type_filter or type_filter == "transaction":
             qs = StockTransaction.all_objects.filter(is_deleted=True)
             if query:
-                # FIX: StockTransaction doesn't have a 'name' field, search by variant name or notes
                 qs = qs.filter(Q(variant__name__icontains=query) | Q(notes__icontains=query))
             items.extend([{
                 "id": c.id,

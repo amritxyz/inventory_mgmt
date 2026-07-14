@@ -16,7 +16,7 @@
         <select name="order" id="order_select" class="sort-select" onchange="this.form.submit()">
             {% for col in table.columns %}
                 {% if not col.no_sort %}
-                    <option value="{{ col.key }}"{% if request.GET.order == col.key or not request.GET.order and forloop.first %} selected{% endif %}>{{ col.label }}</option>
+                    <option value="{{ col.key }}"{% if request.GET.order == col.key or not request.GET.order and col.key == default_sort_key %} selected{% endif %}>{{ col.label }}</option>
                 {% endif %}
             {% endfor %}
         </select>
