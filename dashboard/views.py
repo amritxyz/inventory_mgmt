@@ -1,8 +1,11 @@
 from dashboard.utils.actions import resolve_actions
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q, Case, Count, QuerySet, Sum, When, F
-from django.db.models import IntegerField
+from django.db.models import (
+    Q, Case, Count, QuerySet, Sum, When, F,
+    IntegerField, DecimalField, ExpressionWrapper
+)
+from django.db.models.functions import Coalesce
 from django.http import Http404, request
 from django.shortcuts import _get_queryset, render, redirect, get_object_or_404
 from django.urls import reverse_lazy
@@ -75,6 +78,7 @@ class IndexView(TemplateView):
         # doughnut chart: quantities by type
         tx_totals = (
             StockTransaction.objects
+            .filter(is_deleted=False)
             .values('transaction_type')
             .annotate(total_quantity=Sum('quantity'))
             .order_by('transaction_type')
@@ -84,6 +88,54 @@ class IndexView(TemplateView):
 
         # recent transactions [last 5]
         recent_transactions = StockTransaction.objects.select_related('variant__product').order_by('-transaction_date')[:5]
+
+        # Financial Calculations
+        transactions_qs = StockTransaction.objects.filter(is_deleted=False)
+
+        # Cash inflow (Revenue): Sum of (quantity * unit_price - discount) for OUT transactions
+        inflow_agg = (
+            transactions_qs.filter(transaction_type=StockTransaction.TransactionType.OUT)
+            .annotate(
+                item_revenue=ExpressionWrapper(
+                    F('quantity') * Coalesce(F('unit_price'), 0) - Coalesce(F('discount'), 0),
+                    output_field=IntegerField()
+                )
+            )
+            .aggregate(total=Sum('item_revenue'))
+        )
+        total_inflow = inflow_agg['total'] or 0
+
+        # Cash outflow (Purchases): Sum of (quantity * unit_price) for IN transactions
+        outflow_agg = (
+            transactions_qs.filter(transaction_type=StockTransaction.TransactionType.IN)
+            .annotate(
+                item_cost=ExpressionWrapper(
+                    F('quantity') * Coalesce(F('unit_price'), 0),
+                    output_field=IntegerField()
+                )
+            )
+            .aggregate(total=Sum('item_cost'))
+        )
+        total_outflow = outflow_agg['total'] or 0
+
+        # Cashflow = Inflow - Outflow
+        cashflow = total_inflow - total_outflow
+
+        # Cost of Goods Sold (COGS): Sum of (quantity * cost_price) for OUT transactions
+        cogs_agg = (
+            transactions_qs.filter(transaction_type=StockTransaction.TransactionType.OUT)
+            .annotate(
+                item_cogs=ExpressionWrapper(
+                    F('quantity') * Coalesce(F('cost_price'), 0),
+                    output_field=IntegerField()
+                )
+            )
+            .aggregate(total=Sum('item_cogs'))
+        )
+        total_cogs = cogs_agg['total'] or 0
+
+        # Profit/Loss = Revenue (Inflow) - COGS
+        profit_loss = total_inflow - total_cogs
 
         context.update({
             "total_products": total_products,
@@ -95,6 +147,10 @@ class IndexView(TemplateView):
             "tx_labels": tx_labels,
             "tx_values": tx_values,
             "recent_transactions": recent_transactions,
+            "total_inflow": total_inflow,
+            "total_outflow": total_outflow,
+            "cashflow": cashflow,
+            "profit_loss": profit_loss,
         })
         return context
 
@@ -248,6 +304,7 @@ class ProductVariantListView(Action, Search, Sort, ListView):
         "product": "product__name",
         "name": "name",
         "sku": "sku",
+        "cost_price": "cost_price",
         "price": "price",
         "stock_balance": "stock_balance",
         "date": "created_at"
@@ -258,7 +315,8 @@ class ProductVariantListView(Action, Search, Sort, ListView):
             {"key": "product", "label": "Product"},
             {"key": "name", "label": "Variant"},
             {"key": "sku", "label": "SKU"},
-            {"key": "price", "label": "Price"},
+            {"key": "cost_price", "label": "Cost Price"},
+            {"key": "price", "label": "Selling Price"},
             {"key": "stock_balance", "label": "Stock"},
             {"key": "created_at", "label": "Date"},
         ],
@@ -348,14 +406,19 @@ class StockTransactionListView(Action, Search, Sort, ListView):
         "transaction_date": "transaction_date",
         "variant": "variant__name",
         "quantity": "quantity",
-        "transaction_type": "transaction_type"
+        "transaction_type": "transaction_type",
+        "unit_price": "unit_price",
+        "discount": "discount",
     }
 
     table = {
         "columns": [
             {"key": "variant", "label": "Variant"},
-            {"key": "transaction_type", "label": "Transaction Type"},
+            {"key": "transaction_type", "label": "Type"},
             {"key": "quantity", "label": "Quantity"},
+            {"key": "unit_price", "label": "Unit Price"},
+            {"key": "discount", "label": "Discount"},
+            {"key": "total_amount", "label": "Total Amount"},
             {"key": "transaction_date", "label": "Date"},
         ],
         "actions": ["edit", "delete"],

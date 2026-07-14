@@ -15,6 +15,7 @@ class ProductVariantForm(forms.ModelForm):
             "category",
             "description",
             "price",
+            "cost_price",
             "color",
             # "current_stock",
             "reorder_level",
@@ -27,5 +28,7 @@ class StockTransactionForm(forms.ModelForm):
             "variant",
             "transaction_type",
             "quantity",
+            "unit_price",
+            "discount",
             "notes"
         ]

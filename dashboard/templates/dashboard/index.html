@@ -1,5 +1,5 @@
 {% extends 'dashboard/base.html' %}
-{% load static %}
+{% load static dynamic %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -33,6 +33,30 @@
         <div class="stat-label">Transactions</div>
         <div class="stat-value">{{ total_transactions }}</div>
         {#<div class="stat-icon"></div>#}
+    </div>
+</div>
+
+{# financial cards #}
+<div class="stats-grid" style="margin-top: 16px;">
+    <div class="stat-card">
+        <div class="stat-label">Total Inflow (Revenue)</div>
+        <div class="stat-value" style="color: #2e7d32;">{{ total_inflow|currency }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Outflow (Purchases)</div>
+        <div class="stat-value" style="color: #c62828;">{{ total_outflow|currency }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Net Cashflow</div>
+        <div class="stat-value" style="color: {% if cashflow >= 0 %}#2e7d32{% else %}#c62828{% endif %};">
+            {% if cashflow >= 0 %}+{% endif %}{{ cashflow|currency }}
+        </div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid {% if profit_loss >= 0 %}#2e7d32{% else %}#c62828{% endif %};">
+        <div class="stat-label">Gross Profit / Loss</div>
+        <div class="stat-value" style="color: {% if profit_loss >= 0 %}#2e7d32{% else %}#c62828{% endif %};">
+            {% if profit_loss >= 0 %}+{% endif %}{{ profit_loss|currency }}
+        </div>
     </div>
 </div>
 
