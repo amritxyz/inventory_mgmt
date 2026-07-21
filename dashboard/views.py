@@ -1,8 +1,11 @@
 from dashboard.utils.actions import resolve_actions
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Q, Case, Count, QuerySet, Sum, When, F
-from django.db.models import IntegerField
+from django.db.models import (
+    Q, Case, Count, QuerySet, Sum, When, F,
+    IntegerField, DecimalField, ExpressionWrapper
+)
+from django.db.models.functions import Coalesce
 from django.http import Http404, request
 from django.shortcuts import _get_queryset, render, redirect, get_object_or_404
 from django.urls import reverse_lazy
@@ -75,6 +78,7 @@ class IndexView(TemplateView):
         # doughnut chart: quantities by type
         tx_totals = (
             StockTransaction.objects
+            .filter(is_deleted=False)
             .values('transaction_type')
             .annotate(total_quantity=Sum('quantity'))
             .order_by('transaction_type')
@@ -84,6 +88,54 @@ class IndexView(TemplateView):
 
         # recent transactions [last 5]
         recent_transactions = StockTransaction.objects.select_related('variant__product').order_by('-transaction_date')[:5]
+
+        # Financial Calculations
+        transactions_qs = StockTransaction.objects.filter(is_deleted=False)
+
+        # Cash inflow (Revenue): Sum of (quantity * unit_price - discount) for OUT transactions
+        inflow_agg = (
+            transactions_qs.filter(transaction_type=StockTransaction.TransactionType.OUT)
+            .annotate(
+                item_revenue=ExpressionWrapper(
+                    F('quantity') * Coalesce(F('unit_price'), 0) - Coalesce(F('discount'), 0),
+                    output_field=IntegerField()
+                )
+            )
+            .aggregate(total=Sum('item_revenue'))
+        )
+        total_inflow = inflow_agg['total'] or 0
+
+        # Cash outflow (Purchases): Sum of (quantity * unit_price) for IN transactions
+        outflow_agg = (
+            transactions_qs.filter(transaction_type=StockTransaction.TransactionType.IN)
+            .annotate(
+                item_cost=ExpressionWrapper(
+                    F('quantity') * Coalesce(F('unit_price'), 0),
+                    output_field=IntegerField()
+                )
+            )
+            .aggregate(total=Sum('item_cost'))
+        )
+        total_outflow = outflow_agg['total'] or 0
+
+        # Cashflow = Inflow - Outflow
+        cashflow = total_inflow - total_outflow
+
+        # Cost of Goods Sold (COGS): Sum of (quantity * cost_price) for OUT transactions
+        cogs_agg = (
+            transactions_qs.filter(transaction_type=StockTransaction.TransactionType.OUT)
+            .annotate(
+                item_cogs=ExpressionWrapper(
+                    F('quantity') * Coalesce(F('cost_price'), 0),
+                    output_field=IntegerField()
+                )
+            )
+            .aggregate(total=Sum('item_cogs'))
+        )
+        total_cogs = cogs_agg['total'] or 0
+
+        # Profit/Loss = Revenue (Inflow) - COGS
+        profit_loss = total_inflow - total_cogs
 
         context.update({
             "total_products": total_products,
@@ -95,6 +147,10 @@ class IndexView(TemplateView):
             "tx_labels": tx_labels,
             "tx_values": tx_values,
             "recent_transactions": recent_transactions,
+            "total_inflow": total_inflow,
+            "total_outflow": total_outflow,
+            "cashflow": cashflow,
+            "profit_loss": profit_loss,
         })
         return context
 
@@ -122,6 +178,7 @@ class Sort:
         direction = self.request.GET.get("sort", "desc")
         order_key = self.request.GET.get("order")
 
+        # Looks up the key sent from the frontend table
         order_field = self.allowed_sort_fields.get(order_key, self.default_sort_field)
         ordering = f"-{order_field}" if direction == "desc" else order_field
 
@@ -205,15 +262,18 @@ class ProductListView(Action, Search, Sort, ListView):
     search_fields = ["name"]
 
     default_sort_field = "name"
+
     allowed_sort_fields = {
         "name": "name",
-        "variants": "variant_count"
+        "variant_count": "variant_count",
+        "date": "created_at"
     }
 
     table = {
         "columns": [
             {"key": "name", "label": "Product Name"},
             {"key": "variant_count", "label": "Variants"},
+            {"key": "created_at", "label": "Date", "default_hidden": True},
         ],
         "actions": ["edit", "delete"],
         "model_key": "product",
@@ -235,15 +295,35 @@ class ProductVariantListView(Action, Search, Sort, ListView):
     model = ProductVariant
     template_name = "dashboard/productvariant_list.html"
     context_object_name = "variants"
-    search_fields = ["name", "sku", "product__name"]
+    search_fields = ["name", "sku", "product__name", "category__name"]
     paginate_by = 10
 
     default_sort_field = "name"
+
     allowed_sort_fields = {
-        "product_name": "product__name",
-        "variant": "name",
+        "product": "product__name",
+        "name": "name",
+        "category": "category__name",
         "sku": "sku",
+        "cost_price": "cost_price",
         "price": "price",
+        "stock_balance": "stock_balance",
+        "date": "created_at"
+    }
+
+    table = {
+        "columns": [
+            {"key": "product", "label": "Product"},
+            {"key": "name", "label": "Variant"},
+            {"key": "category", "label": "Category"},
+            {"key": "sku", "label": "SKU"},
+            {"key": "cost_price", "label": "Cost Price", "default_hidden": True},
+            {"key": "price", "label": "Selling Price"},
+            {"key": "stock_balance", "label": "Stock"},
+            {"key": "created_at", "label": "Date", "default_hidden": True},
+        ],
+        "actions": ["transact", "edit", "delete"],
+        "model_key": "variant",
     }
 
     def get_queryset(self):
@@ -268,18 +348,6 @@ class ProductVariantListView(Action, Search, Sort, ListView):
                 )
             )
         )
-
-    table = {
-        "columns": [
-            {"key": "product", "label": "Product"},
-            {"key": "name", "label": "Variant"},
-            {"key": "sku", "label": "SKU"},
-            {"key": "price", "label": "Price"},
-            {"key": "stock_balance", "label": "Stock"},
-        ],
-        "actions": ["transact", "edit", "delete"],
-        "model_key": "variant",
-    }
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -340,30 +408,27 @@ class StockTransactionListView(Action, Search, Sort, ListView):
         "transaction_date": "transaction_date",
         "variant": "variant__name",
         "quantity": "quantity",
-        "transaction_type": "transaction_type"
+        "transaction_type": "transaction_type",
+        "unit_price": "unit_price",
+        "discount": "discount",
     }
 
     table = {
         "columns": [
             {"key": "variant", "label": "Variant"},
-            {"key": "transaction_type", "label": "Transaction Type"},
+            {"key": "transaction_type", "label": "Type"},
             {"key": "quantity", "label": "Quantity"},
-            {"key": "transaction_date", "label": "Date"},
+            {"key": "unit_price", "label": "Unit Price"},
+            {"key": "discount", "label": "Discount", "default_hidden": True},
+            {"key": "total_amount", "label": "Total Amount"},
+            {"key": "transaction_date", "label": "Date", "default_hidden": True},
         ],
         "actions": ["edit", "delete"],
         "model_key": "transaction",
     }
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("variant__product")
-
-        direction = self.request.GET.get("sort", "desc")
-        order_key = self.request.GET.get("order")
-
-        order_field = self.allowed_sort_fields.get(order_key, self.default_sort_field)
-
-        ordering = f"-{order_field}" if direction == "desc" else order_field
-        return qs.order_by(ordering, "id")
+        return super().get_queryset().select_related("variant__product")
 
     def get_context_data(self, **kwargs):
         return super().get_context_data(**kwargs)
@@ -464,7 +529,6 @@ class TrashListView(Search, ListView):
         if not type_filter or type_filter == "transaction":
             qs = StockTransaction.all_objects.filter(is_deleted=True)
             if query:
-                # FIX: StockTransaction doesn't have a 'name' field, search by variant name or notes
                 qs = qs.filter(Q(variant__name__icontains=query) | Q(notes__icontains=query))
             items.extend([{
                 "id": c.id,

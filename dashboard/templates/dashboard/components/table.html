@@ -1,19 +1,50 @@
 {% load dynamic %}
 
-<div class="table-container">
-    <!-- Toolbar for Search & Sort -->
-    <div class="table-toolbar">
-        {% include "dashboard/components/sort.html" %}
-        {% include "dashboard/components/search.html" %}
-    </div>
+<!-- Toolbar for Search, Sort & Column Selector -->
+<div class="table-toolbar">
+    {% include "dashboard/components/sort.html" %}
+    {% include "dashboard/components/search.html" %}
 
+    <!-- Column Visibility Selector -->
+    <div class="column-selector">
+        <button type="button" class="column-selector-trigger" id="colSelectorBtn" aria-label="Toggle columns">
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+                <path d="M0 0h24v24H0z" fill="none" />
+                <path fill="currentColor" fill-rule="evenodd" d="M20 4H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1M4 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h16a3 3 0 0 0 3-3V5a3 3 0 0 0-3-3zm2 5h2v2H6zm5 0a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2zm-3 4H6v2h2zm2 1a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2h-6a1 1 0 0 1-1-1m-2 3H6v2h2zm2 1a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2h-6a1 1 0 0 1-1-1" clip-rule="evenodd" />
+            </svg>
+            <span>Columns</span>
+        </button>
+        <div class="column-selector-dropdown" id="colSelectorDropdown">
+            <div class="column-selector-header">
+                <span>Show / Hide Columns</span>
+            </div>
+            {% for col in table.columns %}
+            <label class="column-selector-item">
+                <input
+                        type="checkbox"
+                        class="col-toggle"
+                        data-col-index="{{ forloop.counter }}"
+                        {% if col.default_hidden %}
+                        {% else %}checked{% endif %}
+                        />
+                <span>{{ col.label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="table-container" id="tableContainer">
     <!-- Actual Data Table -->
-    <table class="data-table">
+    <table class="data-table" id="dataTable">
         <thead>
             <tr>
                 <th>#</th>
                 {% for col in table.columns %}
-                    <th>{{ col.label }}</th>
+                    <th data-col="{{ forloop.counter }}"
+                        {% if col.default_hidden %}style="display:none"{% endif %}>
+                        {{ col.label }}
+                    </th>
                 {% endfor %}
                 {% if table.actions %}
                     <th class="text-right actions-col"></th>
@@ -26,7 +57,10 @@
                 <td class="cell-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
 
                 {% for col in table.columns %}
-                    <td>{{ row.obj|get_attr:col.key }}</td>
+                    <td data-col="{{ forloop.counter }}"
+                        {% if col.default_hidden %}style="display:none"{% endif %}>
+                        {{ row.obj|get_attr:col.key }}
+                    </td>
                 {% endfor %}
 
                 {% if table.actions %}
@@ -48,11 +82,37 @@
                                 <form method="post" action="{{ action.url }}">
                                     {% csrf_token %}
                                     <button type="submit" class="dropdown-item {% if action.label == 'Delete' %}dropdown-item-danger{% endif %}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+                                            <path d="M0 0h24v24H0z" fill="none" />
+                                            <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+                                        </svg>
                                         {{ action.label }}
                                     </button>
                                 </form>
                                 {% else %}
-                                <a href="{{ action.url }}" class="dropdown-item">{{ action.label }}</a>
+                                <a href="{{ action.url }}" class="dropdown-item">
+                                    {% if action.label == 'Edit' %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+                                            <path d="M0 0h24v24H0z" fill="none" />
+                                            <g class="edit-outline">
+                                            <g fill="currentColor" fill-rule="evenodd" class="Vector" clip-rule="evenodd">
+                                            <path d="M2 6.857A4.857 4.857 0 0 1 6.857 2H12a1 1 0 1 1 0 2H6.857A2.857 2.857 0 0 0 4 6.857v10.286A2.857 2.857 0 0 0 6.857 20h10.286A2.857 2.857 0 0 0 20 17.143V12a1 1 0 1 1 2 0v5.143A4.857 4.857 0 0 1 17.143 22H6.857A4.857 4.857 0 0 1 2 17.143z" />
+                                            <path d="m15.137 13.219l-2.205 1.33l-1.033-1.713l2.205-1.33l.003-.002a1.2 1.2 0 0 0 .232-.182l5.01-5.036a3 3 0 0 0 .145-.157c.331-.386.821-1.15.228-1.746c-.501-.504-1.219-.028-1.684.381a6 6 0 0 0-.36.345l-.034.034l-4.94 4.965a1.2 1.2 0 0 0-.27.41l-.824 2.073a.2.2 0 0 0 .29.245l1.032 1.713c-1.805 1.088-3.96-.74-3.18-2.698l.825-2.072a3.2 3.2 0 0 1 .71-1.081l4.939-4.966l.029-.029c.147-.15.641-.656 1.24-1.02c.327-.197.849-.458 1.494-.508c.74-.059 1.53.174 2.15.797a2.9 2.9 0 0 1 .845 1.75a3.15 3.15 0 0 1-.23 1.517c-.29.717-.774 1.244-.987 1.457l-5.01 5.036q-.28.281-.62.487m4.453-7.126s-.004.003-.013.006z" />
+                                            </g>
+                                            </g>
+                                        </svg>
+                                    {% endif %}
+                                    {% if action.label == 'Transact' %}
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 48 48">
+                                        <path d="M0 0h48v48H0z" fill="none" />
+                                        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4">
+                                        <path d="M39 6H9a3 3 0 0 0-3 3v30a3 3 0 0 0 3 3h30a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3" />
+                                        <path d="m21 31l5 4l8-10M14 15h20m-20 8h8" />
+                                        </g>
+                                    </svg>
+                                    {% endif %}
+                                    {{ action.label }}
+                                </a>
                                 {% endif %}
                             {% endfor %}
                         </div>
@@ -70,3 +130,6 @@
         </tbody>
     </table>
 </div>
+{% load static %}
+
+<script src="{% static 'js/script.js' %}"></script>

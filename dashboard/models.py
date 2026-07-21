@@ -60,7 +60,8 @@ class ProductVariant(BaseModel):
     name = models.CharField(max_length=200)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='variants')
     description = models.TextField(blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.IntegerField()
+    cost_price = models.IntegerField(null=True, blank=True, default=0)
     color = models.CharField(max_length=50, blank=True)
     reorder_level = models.PositiveIntegerField(default=10)
 
@@ -130,6 +131,9 @@ class StockTransaction(BaseModel):
     variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='transactions')
     transaction_type = models.CharField(max_length=3, choices=TransactionType.choices)
     quantity = models.PositiveIntegerField()
+    unit_price = models.IntegerField(null=True, blank=True, default=0)
+    discount = models.IntegerField(null=True, blank=True, default=0)
+    cost_price = models.IntegerField(null=True, blank=True, default=0)
     transaction_date = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
 
@@ -142,7 +146,17 @@ class StockTransaction(BaseModel):
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.variant} (x{self.quantity})"
 
+    @property
+    def total_amount(self):
+        qty = self.quantity or 0
+        price = self.unit_price or 0
+        if self.transaction_type == self.TransactionType.OUT:
+            disc = self.discount or 0
+            return (qty * price) - disc
+        return qty * price
+
     def clean(self):
+        super().clean()
         if self.transaction_type == self.TransactionType.OUT:
             # FIX: Exclude current instance if updating, to prevent false "Insufficient stock" errors
             qs = StockTransaction.all_objects.filter(variant=self.variant, is_deleted=False)
@@ -162,6 +176,38 @@ class StockTransaction(BaseModel):
             if self.quantity > current_stock:
                 raise ValidationError("Insufficient stock")
 
+            # validate discount
+            price_to_use = self.unit_price if self.unit_price is not None else self.variant.price
+            total_before_discount = self.quantity * price_to_use
+            disc = self.discount or 0
+            if disc > total_before_discount:
+                raise ValidationError({"discount": "Discount cannot be greater than the total amount."})
+            if disc < 0:
+                raise ValidationError({"discount": "Discount cannot be negative."})
+        elif self.transaction_type == self.TransactionType.IN:
+            if self.discount and self.discount > 0:
+                raise ValidationError({"discount": "Discounts can only be applied to Stock Out transactions."})
+
     def save(self, *args, **kwargs):
+        if self.unit_price is None or self.unit_price == 0:
+            if self.transaction_type == self.TransactionType.IN:
+                self.unit_price = self.variant.cost_price or 0
+            else:
+                self.unit_price = self.variant.price or 0
+
+        if self.discount is None:
+            self.discount = 0
+
+        if self.transaction_type == self.TransactionType.OUT:
+            if self.cost_price is None or self.cost_price == 0:
+                self.cost_price = self.variant.cost_price or 0
+        else:
+            self.cost_price = self.unit_price
+            self.discount = 0
+
         self.full_clean()
         super().save(*args, **kwargs)
+
+        # Update the variant's cost price to the price of the latest IN transaction
+        if self.transaction_type == self.TransactionType.IN and self.unit_price > 0:
+            ProductVariant.objects.filter(pk=self.variant_id).update(cost_price=self.unit_price)
