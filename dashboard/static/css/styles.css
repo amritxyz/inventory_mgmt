@@ -124,7 +124,6 @@ body {
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: center;
-    line-height: 1.4;
 }
 
 .btn-primary {
@@ -230,21 +229,18 @@ body {
 }
 
 .table-container {
-    background: #ffffff;
-    border: 1px solid #eaeaea;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 16px;
+    overflow-x: auto;
+    overflow-y: visible;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
 }
 
 .table-toolbar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px 14px;
-    background-color: #fafafa;
-    border-bottom: 1px solid #eaeaea;
-    gap: 10px;
+    gap: 12px;
+    padding: 12px 16px;
+    /* NO overflow: hidden here! */
 }
 
 .table-toolbar input,
@@ -440,12 +436,29 @@ body {
     border: 1px solid #dddddd;
     border-radius: 5px;
     font-size: 0.8rem;
-    min-width: 180px;
+    padding-left: 42px !important;   /* Increased left padding */
+    min-width: 220px;                /* Slightly wider */
 }
 
-.search-input:focus {
-    outline: none;
-    border-color: #111111;
+.search-input:focus + .search-icon,
+.search-input-wrapper:focus-within .search-icon {
+    color: #111111;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: inline-block;
+    flex: 1;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 56%;
+    transform: translateY(-50%);
+    color: #888888;
+    pointer-events: none;
+    z-index: 2;
 }
 
 .search-btn { padding: 5px 12px; }
@@ -486,7 +499,6 @@ body {
 
 .sort-dir-btn {
     padding: 5px 10px;
-    font-size: 0.95rem;
     min-width: 30px;
     display: flex;
     align-items: center;
@@ -873,4 +885,126 @@ body {
     flex-direction: row;
     align-items: center;
     justify-content: center;
+}
+
+/* Column Selector */
+.column-selector {
+    position: relative;
+    margin-left: auto;
+}
+
+.column-selector-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 8px;
+    background: var(--surface, #fff);
+    color: var(--text-primary, #1a202c);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.column-selector-trigger:hover {
+    background: var(--surface-hover, #f7fafc);
+    border-color: var(--primary, gray);
+}
+
+.column-selector-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 210px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    padding: 6px;
+    z-index: 9999;
+    display: none;
+    animation: colDropIn 0.15s ease;
+}
+
+.column-selector-dropdown.open {
+    display: block;
+}
+
+@keyframes colDropIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.column-selector-header {
+    padding: 8px 12px 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #718096);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    margin-bottom: 4px;
+}
+
+.column-selector-item {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    align-items: center;
+    column-gap: 12px;
+
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: #333333;
+    text-decoration: none;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+    gap: 8px;
+}
+
+.column-selector-item:hover {
+    /* background: var(--surface-hover); */
+
+    background-color: #f5f5f5;
+    color: #111111;
+}
+
+.column-selector-item > input {
+    grid-column: 1;
+    grid-row: 1;
+
+    position: static;   /* important */
+    margin: 0;
+    justify-self: center;
+    align-self: center;
+    border: solid white;
+}
+
+.column-selector-item > input[type="checkbox"] {
+    accent-color: gray;
+}
+
+.column-selector-item > span {
+    grid-column: 2;
+    grid-row: 1;
+
+    white-space: nowrap;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 25px;
+  width: 25px;
+  background-color: #eee;
 }

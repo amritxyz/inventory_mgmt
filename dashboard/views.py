@@ -273,7 +273,7 @@ class ProductListView(Action, Search, Sort, ListView):
         "columns": [
             {"key": "name", "label": "Product Name"},
             {"key": "variant_count", "label": "Variants"},
-            {"key": "created_at", "label": "Date"},
+            {"key": "created_at", "label": "Date", "default_hidden": True},
         ],
         "actions": ["edit", "delete"],
         "model_key": "product",
@@ -295,7 +295,7 @@ class ProductVariantListView(Action, Search, Sort, ListView):
     model = ProductVariant
     template_name = "dashboard/productvariant_list.html"
     context_object_name = "variants"
-    search_fields = ["name", "sku", "product__name"]
+    search_fields = ["name", "sku", "product__name", "category__name"]
     paginate_by = 10
 
     default_sort_field = "name"
@@ -303,6 +303,7 @@ class ProductVariantListView(Action, Search, Sort, ListView):
     allowed_sort_fields = {
         "product": "product__name",
         "name": "name",
+        "category": "category__name",
         "sku": "sku",
         "cost_price": "cost_price",
         "price": "price",
@@ -314,11 +315,12 @@ class ProductVariantListView(Action, Search, Sort, ListView):
         "columns": [
             {"key": "product", "label": "Product"},
             {"key": "name", "label": "Variant"},
+            {"key": "category", "label": "Category"},
             {"key": "sku", "label": "SKU"},
-            {"key": "cost_price", "label": "Cost Price"},
+            {"key": "cost_price", "label": "Cost Price", "default_hidden": True},
             {"key": "price", "label": "Selling Price"},
             {"key": "stock_balance", "label": "Stock"},
-            {"key": "created_at", "label": "Date"},
+            {"key": "created_at", "label": "Date", "default_hidden": True},
         ],
         "actions": ["transact", "edit", "delete"],
         "model_key": "variant",
@@ -417,9 +419,9 @@ class StockTransactionListView(Action, Search, Sort, ListView):
             {"key": "transaction_type", "label": "Type"},
             {"key": "quantity", "label": "Quantity"},
             {"key": "unit_price", "label": "Unit Price"},
-            {"key": "discount", "label": "Discount"},
+            {"key": "discount", "label": "Discount", "default_hidden": True},
             {"key": "total_amount", "label": "Total Amount"},
-            {"key": "transaction_date", "label": "Date"},
+            {"key": "transaction_date", "label": "Date", "default_hidden": True},
         ],
         "actions": ["edit", "delete"],
         "model_key": "transaction",
