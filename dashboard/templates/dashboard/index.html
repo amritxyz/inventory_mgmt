@@ -40,21 +40,21 @@
 <div class="stats-grid" style="margin-top: 16px;">
     <div class="stat-card">
         <div class="stat-label">Total Inflow (Revenue)</div>
-        <div class="stat-value" style="color: var(--color-success);">{{ total_inflow|currency }}</div>
+        <div class="stat-value" style="color: #2e7d32;">{{ total_inflow|currency }}</div>
     </div>
     <div class="stat-card">
         <div class="stat-label">Total Outflow (Purchases)</div>
-        <div class="stat-value" style="color: var(--color-danger);">{{ total_outflow|currency }}</div>
+        <div class="stat-value" style="color: #c62828;">{{ total_outflow|currency }}</div>
     </div>
     <div class="stat-card">
         <div class="stat-label">Net Cashflow</div>
-        <div class="stat-value" style="color: var(--color-{% if cashflow >= 0 %}success{% else %}danger{% endif %});">
+        <div class="stat-value" style="color: {% if cashflow >= 0 %}#2e7d32{% else %}#c62828{% endif %};">
             {% if cashflow >= 0 %}+{% endif %}{{ cashflow|currency }}
         </div>
     </div>
-    <div class="stat-card" style="border-left-color: var(--color-{% if profit_loss >= 0 %}success{% else %}danger{% endif %});">
+    <div class="stat-card" style="border-left: 4px solid {% if profit_loss >= 0 %}#2e7d32{% else %}#c62828{% endif %};">
         <div class="stat-label">Gross Profit / Loss</div>
-        <div class="stat-value" style="color: var(--color-{% if profit_loss >= 0 %}success{% else %}danger{% endif %});">
+        <div class="stat-value" style="color: {% if profit_loss >= 0 %}#2e7d32{% else %}#c62828{% endif %};">
             {% if profit_loss >= 0 %}+{% endif %}{{ profit_loss|currency }}
         </div>
     </div>
@@ -130,17 +130,17 @@
 {# chart.js via CDN #}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    {# navy/blue theme palette #}
-    const themePalette = [
-        'rgba(30, 58, 95, 0.9)',
-        'rgba(37, 99, 235, 0.85)',
-        'rgba(71, 123, 171, 0.85)',
-        'rgba(100, 149, 195, 0.8)',
-        'rgba(148, 184, 219, 0.8)',
-        'rgba(190, 213, 235, 0.85)',
+    {# monochrome palette #}
+    const monoPalette = [
+        'rgba(17, 17, 17, 0.85)',
+        'rgba(60, 60, 60, 0.85)',
+        'rgba(100, 100, 100, 0.85)',
+        'rgba(140, 140, 140, 0.85)',
+        'rgba(170, 170, 170, 0.85)',
+        'rgba(200, 200, 200, 0.85)',
     ];
 
-    const themeBorders = themePalette.map(c => c.replace(/[\d.]+\)$/, '1)'));
+    const monoBorders = monoPalette.map(c => c.replace('0.85', '1'));
 
     {# bar chart: stocks by category #}
     const categoryCtx = document.getElementById('categoryChart').getContext('2d');
@@ -151,8 +151,8 @@
             datasets: [{
                 label: 'Stock',
                 data: {{ category_values|safe }},
-                backgroundColor: themePalette,
-                borderColor: themeBorders,
+                backgroundColor: monoPalette,
+                borderColor: monoBorders,
                 borderWidth: 1,
                 borderRadius: 4,
                 maxBarThickness: 40,
@@ -164,7 +164,7 @@
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: '#1e3a5f',
+                    backgroundColor: '#111111',
                     titleColor: '#ffffff',
                     bodyColor: '#ffffff',
                     padding: 10,
@@ -174,12 +174,12 @@
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: '#f1f5f9', drawBorder: false },
-                    ticks: { color: '#94a3b8', font: { size: 11 } }
+                    grid: { color: '#f0f0f0', drawBorder: false },
+                    ticks: { color: '#888888', font: { size: 11 } }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#64748b', font: { size: 11 } }
+                    ticks: { color: '#555555', font: { size: 11 } }
                 }
             }
         }
@@ -194,8 +194,8 @@
             datasets: [{
                 data: {{ tx_values|safe }},
                 backgroundColor: [
-                    'rgba(21, 128, 61, 0.85)',
-                    'rgba(180, 83, 9, 0.85)',
+                    'rgba(17, 17, 17, 0.85)',
+                    'rgba(160, 160, 160, 0.85)',
                 ],
                 borderColor: '#ffffff',
                 borderWidth: 2,
@@ -209,7 +209,7 @@
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: '#64748b',
+                        color: '#555555',
                         font: { size: 12 },
                         padding: 16,
                         usePointStyle: true,
@@ -217,7 +217,7 @@
                     }
                 },
                 tooltip: {
-                    backgroundColor: '#1e3a5f',
+                    backgroundColor: '#111111',
                     titleColor: '#ffffff',
                     bodyColor: '#ffffff',
                     padding: 10,
