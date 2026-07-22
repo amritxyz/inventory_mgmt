@@ -16,7 +16,11 @@ from .views import (
     StockTransactionDeleteView,
     StockTransactionListView,
     StockTransactionCreateView,
-    TrashListView
+    TrashListView,
+    UserListView,
+    ApproveUserView,
+    ToggleUserStatusView,
+    DeleteUserView,
 )
 
 app_name = "dashboard"
@@ -47,4 +51,10 @@ urlpatterns = [
     path("trash/", TrashListView.as_view(), name="trash"),
     path("trash/restore/<str:item_type>/<int:pk>/", RestoreItemView.as_view(), name="restore_item"),
     path("trash/permanent-delete/<str:item_type>/<int:pk>/", PermanentDelete.as_view(), name="permanent_delete"),
+
+    # User Approvals / Management (Admin only)
+    path("users/", UserListView.as_view(), name="user_list"),
+    path("users/<int:pk>/approve/", ApproveUserView.as_view(), name="user_approve"),
+    path("users/<int:pk>/toggle/", ToggleUserStatusView.as_view(), name="user_toggle"),
+    path("users/<int:pk>/delete/", DeleteUserView.as_view(), name="user_delete"),
 ]

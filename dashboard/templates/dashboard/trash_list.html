@@ -35,7 +35,7 @@
                 <td><span class="badge">{{ item.type|title }}</span></td>
                 <td>{{ item.name }}</td>
                 <td>{{ item.stock|default:"-" }}</td>
-                <td>{{ item.updated_at|date:"d M Y H:i" }}</td>
+                <td class="cell-muted">{{ item.updated_at|date:"d M Y H:i" }}</td>
                 <td class="text-right">
                     <div class="dropdown">
                         <button type="button" class="dropdown-trigger" aria-label="Open menu">
