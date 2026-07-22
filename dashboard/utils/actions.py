@@ -16,6 +16,16 @@ ACTION_REGISTRY = {
         "url_name": None,
         "method": "post",
     },
+    "approve": {
+        "label": "Approve",
+        "url_name": None,
+        "method": "post",
+    },
+    "deactivate": {
+        "label": "Deactivate",
+        "url_name": None,
+        "method": "post",
+    },
 }
 
 MODEL_ACTIONS = {
@@ -32,12 +42,26 @@ MODEL_ACTIONS = {
         "edit": "dashboard:transaction_update",
         "delete": "dashboard:transaction_delete",
     },
+    "user": {
+        "approve": "dashboard:user_approve",
+        "deactivate": "dashboard:user_toggle",
+        "delete": "dashboard:user_delete",
+    },
 }
 
-def resolve_actions(model_key, actions, obj):
+def resolve_actions(model_key, actions, obj, request=None):
     resolved = []
+    user = request.user if request else None
 
     for action_key in actions:
+        if model_key == "user":
+            if action_key == "approve" and getattr(obj, "is_active", False):
+                continue
+            if action_key == "deactivate" and (not getattr(obj, "is_active", False) or obj == user):
+                continue
+            if action_key == "delete" and obj == user:
+                continue
+
         meta = ACTION_REGISTRY[action_key]
         url_name = MODEL_ACTIONS[model_key][action_key]
 

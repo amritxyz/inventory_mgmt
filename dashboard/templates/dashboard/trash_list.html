@@ -23,8 +23,8 @@
                 <th>#</th>
                 <th>Type</th>
                 <th>Name</th>
-                <th>Stock</th>
-                <th>Deleted At</th>
+                <th class="hide-sm">Stock</th>
+                <th class="hide-sm">Deleted At</th>
                 <th class="text-right actions-col"></th>
             </tr>
         </thead>
@@ -34,8 +34,8 @@
                 <td class="cell-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
                 <td><span class="badge">{{ item.type|title }}</span></td>
                 <td>{{ item.name }}</td>
-                <td>{{ item.stock|default:"-" }}</td>
-                <td>{{ item.updated_at|date:"d M Y H:i" }}</td>
+                <td class="hide-sm">{{ item.stock|default:"-" }}</td>
+                <td class="cell-muted hide-sm">{{ item.updated_at|date:"d M Y H:i" }}</td>
                 <td class="text-right">
                     <div class="dropdown">
                         <button type="button" class="dropdown-trigger" aria-label="Open menu">

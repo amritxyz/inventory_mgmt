@@ -1,0 +1,27 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}User Approvals & Management - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="header-actions">
+    <div>
+        <h1>User Approvals & Management</h1>
+        <p class="page-subtitle">Review, approve, and manage user account access</p>
+    </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 24px;">
+    <div class="stat-card">
+        <h3>Pending Approvals</h3>
+        <p class="stat-value" style="color: #181818;">{{ pending_count }}</p>
+    </div>
+    <div class="stat-card">
+        <h3>Active Users</h3>
+        <p class="stat-value" style="color: #666666;">{{ active_count }}</p>
+    </div>
+</div>
+
+{% include "dashboard/components/table.html" with table=table %}
+
+{% include "dashboard/components/pagination.html" %}
+{% endblock %}
