@@ -43,6 +43,8 @@ document.addEventListener('click', (e) => {
         if (isOpen) {
             dropdown.classList.remove('open');
         } else {
+            dropdown.style.position = 'fixed';
+            positionDropdown(dropdown, columnTrigger);
             dropdown.classList.add('open');
         }
         return;
@@ -75,13 +77,24 @@ function closeAllDropdowns() {
 
 function positionDropdown(menu, trigger) {
     const triggerRect = trigger.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight || 200;
+    const menuWidth = menu.offsetWidth || 140;
+    const menuHeight = menu.offsetHeight || 120;
+    const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+
+    // Align right side of menu to trigger's right side, keeping it inside viewport bounds
+    let left = triggerRect.right - menuWidth;
+    if (left < 8) {
+        left = 8;
+    }
+    if (left + menuWidth > viewportWidth - 8) {
+        left = viewportWidth - menuWidth - 8;
+    }
+
+    menu.style.left = `${left}px`;
+    menu.style.right = 'auto';
+
     const spaceBelow = viewportHeight - triggerRect.bottom - 8;
-
-    menu.style.left = 'auto';
-    menu.style.right = `${window.innerWidth - triggerRect.right}px`;
-
     if (spaceBelow < menuHeight && triggerRect.top > menuHeight) {
         menu.style.top = 'auto';
         menu.style.bottom = `${viewportHeight - triggerRect.top + 4}px`;

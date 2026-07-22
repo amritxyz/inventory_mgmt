@@ -19,7 +19,7 @@
                 <span>Show / Hide Columns</span>
             </div>
             {% for col in table.columns %}
-            <label class="column-selector-item">
+            <label class="column-selector-item {% if col.responsive %}{{ col.responsive }}{% endif %}">
                 <input
                         type="checkbox"
                         class="col-toggle"
@@ -42,6 +42,7 @@
                 <th>#</th>
                 {% for col in table.columns %}
                     <th data-col="{{ forloop.counter }}"
+                        class="{% if col.responsive %}{{ col.responsive }}{% endif %}"
                         {% if col.default_hidden %}style="display:none"{% endif %}>
                         {{ col.label }}
                     </th>
@@ -58,6 +59,7 @@
 
                 {% for col in table.columns %}
                     <td data-col="{{ forloop.counter }}"
+                        class="{% if col.responsive %}{{ col.responsive }}{% endif %}"
                         {% if col.default_hidden %}style="display:none"{% endif %}>
                         {{ row.obj|get_attr:col.key }}
                     </td>

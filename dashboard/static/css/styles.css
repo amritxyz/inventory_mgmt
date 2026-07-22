@@ -240,6 +240,7 @@ body {
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
+    flex-wrap: wrap;
     /* NO overflow: hidden here! */
 }
 
@@ -265,6 +266,7 @@ body {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 .data-table thead {
@@ -428,8 +430,19 @@ body {
 }
 
 /* SEARCH & SORT CONTROLS */
-.search-form, .sort-form { display: flex; }
-.input-group { display: flex; gap: 6px; }
+.search-form, .sort-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+}
+.input-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 100%;
+}
 
 .search-input {
     padding: 5px 10px;
@@ -438,6 +451,8 @@ body {
     font-size: 0.8rem;
     padding-left: 42px !important;   /* Increased left padding */
     min-width: 220px;                /* Slightly wider */
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .search-input:focus + .search-icon,
@@ -819,7 +834,7 @@ body {
 }
 
 /* RESPONSIVE */
-@media (max-width: 768px) {
+@media (max-width: 1200px) {
     body { flex-direction: column; }
 
     .sidebar {
@@ -861,9 +876,31 @@ body {
         width: 100%;
         padding: 16px;
     }
+
+    .hide-sm {
+        display: none !important;
+    }
 }
 
-@media (min-width: 768px) {
+@media (max-width: 690px) {
+    .hide-xsm {
+        display: none !important;
+    }
+}
+
+@media (max-width: 1100px) {
+    .hide-md {
+        display: none !important;
+    }
+}
+
+@media (max-width: 1380px) {
+    .hide-lg {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1000px) {
     .form-fields {
         grid-template-columns: 1fr 1fr;
     }
@@ -914,10 +951,10 @@ body {
 }
 
 .column-selector-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
+    position: fixed;
     min-width: 210px;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
     max-height: 320px;
     overflow-y: auto;
     background: var(--surface, #fff);
