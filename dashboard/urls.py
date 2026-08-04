@@ -21,6 +21,9 @@ from .views import (
     ApproveUserView,
     ToggleUserStatusView,
     DeleteUserView,
+    ProductDetailView,
+    ProductVariantDetailView,
+    StockTransactionDetailView
 )
 
 app_name = "dashboard"
@@ -34,18 +37,21 @@ urlpatterns = [
     path("products/<int:pk>/edit/", ProductUpdateView.as_view(), name="product_update"),
     path("products/<int:pk>/delete", ProductDeleteView.as_view(), name="product_delete"),
     path("products/<int:pk>/restore", ProductRestoreView.as_view(), name="product_restore"),
+    path( "products/<int:pk>/detail/", ProductDetailView.as_view(), name="product_detail",),
 
     # Variants
     path("variants/", ProductVariantListView.as_view(), name="variant_list"),
     path("variants/add/", ProductVariantCreateView.as_view(), name="variant_create"),
     path("variants/<int:pk>/edit/", ProductVariantUpdateView.as_view(), name="variant_update"),
     path("variants/<int:pk>/delete/", ProductVariantDeleteView.as_view(), name="variant_delete"),
+    path( "variants/<int:pk>/detail/", ProductVariantDetailView.as_view(), name="variant_detail",),
 
     # Transactions
     path("transactions/", StockTransactionListView.as_view(), name="transaction_list"),
     path("transactions/add/", StockTransactionCreateView.as_view(), name="transaction_create"),
     path("transactions/<int:pk>/edit", StockTransactionUpdateView.as_view(), name="transaction_update"),
     path("transactions/<int:pk>/delete", StockTransactionDeleteView.as_view(), name="transaction_delete"),
+    path( "transactions/<int:pk>/detail/", StockTransactionDetailView.as_view(), name="transaction_detail",),
 
     # Trash
     path("trash/", TrashListView.as_view(), name="trash"),

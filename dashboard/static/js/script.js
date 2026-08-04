@@ -183,3 +183,64 @@ window.addEventListener('scroll', () => {
 window.addEventListener('resize', () => {
     closeAllDropdowns();
 });
+
+/* clickable rows in table */
+document.addEventListener("DOMContentLoaded", () => {
+
+    const modal = document.getElementById("detailModal");
+    const title = document.getElementById("detailTitle");
+    const body = document.getElementById("detailBody");
+    const closeBtn = document.querySelector(".close-modal");
+
+    document.querySelectorAll(".clickable-row").forEach(row => {
+
+        row.style.cursor = "pointer";
+
+        row.addEventListener("click", async (e) => {
+
+            if (e.target.closest(".dropdown"))
+                return;
+
+            try {
+
+                const response = await fetch(row.dataset.detailUrl);
+
+                const data = await response.json();
+
+                title.textContent = data.title;
+
+                body.innerHTML = "";
+
+                Object.entries(data.fields).forEach(([key, value]) => {
+
+                    body.innerHTML += `
+                        <div class="detail-item">
+                            <strong>${key}</strong>
+                            <span>${value}</span>
+                        </div>
+                    `;
+
+                });
+
+                modal.classList.add("show");
+
+            } catch (err) {
+
+                console.error(err);
+
+            }
+
+        });
+
+    });
+
+    closeBtn.addEventListener("click", () => {
+        modal.classList.remove("show");
+    });
+
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal)
+            modal.classList.remove("show");
+    });
+
+});

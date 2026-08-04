@@ -54,7 +54,11 @@
         </thead>
         <tbody>
             {% for row in rows %}
-            <tr>
+            <tr class="{% if table.details %}clickable-row{% endif %}"
+                {% if table.details %}
+                    data-detail-url="{{ row.detail_url }}"
+                {% endif %}
+            >
                 <td class="cell-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
 
                 {% for col in table.columns %}
@@ -144,7 +148,60 @@
             {% endfor %}
         </tbody>
     </table>
+    <div id="detailModal" class="modal">
+
+        <div class="modal-content">
+
+            <button class="close-modal">&times;</button>
+
+            <h2 id="detailTitle"></h2>
+
+            <div id="detailBody"></div>
+
+        </div>
+
+</div>
 </div>
 {% load static %}
 
-<script src="{% static 'js/script.js' %}"></script>
+<script src="{% static 'js/script.js' %}">
+document.querySelectorAll(".clickable-row").forEach(row => {
+
+    row.addEventListener("click", e => {
+
+        if (e.target.closest(".dropdown"))
+            return;
+
+        openDetailModal(row.dataset.detailUrl);
+
+    });
+
+});
+
+async function openDetailModal(url) {
+
+    const response = await fetch(url);
+
+    const data = await response.json();
+
+    document.getElementById("detailTitle").textContent = data.title;
+
+    const body = document.getElementById("detailBody");
+
+    body.innerHTML = "";
+
+    Object.entries(data.fields).forEach(([label, value]) => {
+
+        body.innerHTML += `
+            <div class="detail-item">
+                <strong>${label}</strong>
+                <span>${value}</span>
+            </div>
+        `;
+
+    });
+
+    detailModal.classList.add("show");
+
+}
+</script>

@@ -1274,4 +1274,26 @@ body {
     border-color: #444444;
 }
 
+/* details modal */
+.modal {
+    display: none;
+}
 
+.modal.show {
+    display: flex;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    min-width: 500px;
+}

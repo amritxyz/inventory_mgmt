@@ -8,12 +8,12 @@ from django.db.models import (
     IntegerField, DecimalField, ExpressionWrapper
 )
 from django.db.models.functions import Coalesce
-from django.http import Http404, request
+from django.http import Http404, request, JsonResponse
 from django.shortcuts import _get_queryset, render, redirect, get_object_or_404
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views.generic import (
-    DeleteView,
     View,
+    DeleteView,
     TemplateView,
     ListView,
     CreateView,
@@ -224,38 +224,63 @@ class Sort:
 
         return queryset.order_by(ordering, "-id")
 
+from copy import deepcopy
+
 class Action:
     table = {}
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        table = deepcopy(self.table)
         rows = []
 
-        req = getattr(self, "request", None)
-        req_user = getattr(req, "user", None) if req else None
+        req = self.request
+        req_user = req.user
 
         for obj in context[self.context_object_name]:
             obj._request_user = req_user
+
             rows.append({
                 "obj": obj,
                 "actions": resolve_actions(
-                    self.table["model_key"],
-                    self.table.get("actions", []),
+                    table["model_key"],
+                    table.get("actions", []),
                     obj,
                     request=req,
                 ),
+                "detail_url": reverse(
+                    f"dashboard:{table['model_key']}_detail",
+                    args=[obj.pk],
+                ),
             })
 
-        self.table["colspan"] = (
+        table["colspan"] = (
             1
-            + len(self.table["columns"])
-            + (1 if self.table.get("actions") else 0)
+            + len(table["columns"])
+            + (1 if table.get("actions") else 0)
         )
 
         context["rows"] = rows
-        context["table"] = self.table
+        context["table"] = table
 
         return context
+
+class Detail(View):
+    model = None
+    detail_fields = []
+
+    def get(self, request, pk):
+        obj = get_object_or_404(self.model, pk=pk)
+
+        return JsonResponse({
+            "title": str(obj),
+            "fields": {
+                f.get("label", f["key"]): str(getattr(obj, f["key"], ""))
+                for f in self.detail_fields
+            }
+        })
+
 
 """
 Views classes for dashboard_app
@@ -320,6 +345,11 @@ class ProductListView(LoginRequiredMixin, Action, Search, Sort, ListView):
             {"key": "variant_count", "label": "Variants", "responsive": "hide-sm"},
             {"key": "created_at", "label": "Date", "default_hidden": True, "responsive": "hide-md"},
         ],
+        "details": [
+            {"key": "name", "label": "Product"},
+            {"key": "variant_count", "label": "Variants"},
+            {"key": "created_at", "label": "Created"},
+        ],
         "actions": ["edit", "delete"],
         "model_key": "product",
     }
@@ -335,6 +365,15 @@ class ProductListView(LoginRequiredMixin, Action, Search, Sort, ListView):
         context = super().get_context_data(**kwargs)
         context["total_products"] = Product.all_objects.count()
         return context
+
+class ProductDetailView(LoginRequiredMixin, Detail):
+    model = Product
+
+    detail_fields = [
+            {"key": "name", "label": "Product"},
+            {"key": "created_at", "label": "Created"},
+            {"key": "updated_at", "label": "Updated"}
+    ]
 
 class ProductVariantListView(LoginRequiredMixin, Action, Search, Sort, ListView):
     model = ProductVariant
@@ -366,6 +405,16 @@ class ProductVariantListView(LoginRequiredMixin, Action, Search, Sort, ListView)
             {"key": "price", "label": "Selling Price"},
             {"key": "stock_balance", "label": "Stock", "responsive": "hide-md"},
             {"key": "created_at", "label": "Date", "default_hidden": True, "responsive": "hide-lg"},
+        ],
+        "details": [
+            {"key": "product"},
+            {"key": "name"},
+            {"key": "category"},
+            {"key": "sku"},
+            {"key": "price"},
+            {"key": "cost_price"},
+            {"key": "current_stock"},
+            {"key": "description"},
         ],
         "actions": ["transact", "edit", "delete"],
         "model_key": "variant",
@@ -441,6 +490,21 @@ class ProductVariantRestoreView(LoginRequiredMixin, View):
         referer = request.META.get("HTTP_REFERER")
         return redirect(referer)
 
+class ProductVariantDetailView(LoginRequiredMixin, Detail):
+    model = ProductVariant
+
+    detail_fields = [
+        {"key": "product"},
+        {"key": "name"},
+        {"key": "sku"},
+        {"key": "category"},
+        {"key": "price"},
+        {"key": "cost_price"},
+        {"key": "current_stock"},
+        {"key": "reorder_level"},
+        {"key": "description"},
+    ]
+
 class StockTransactionListView(LoginRequiredMixin, Action, Search, Sort, ListView):
     model = StockTransaction
     template_name = "dashboard/stocktransaction_list.html"
@@ -467,6 +531,15 @@ class StockTransactionListView(LoginRequiredMixin, Action, Search, Sort, ListVie
             {"key": "discount", "label": "Discount", "default_hidden": True, "responsive": "hide-md"},
             {"key": "total_amount", "label": "Total Amount" },
             {"key": "transaction_date", "label": "Date", "default_hidden": True, "responsive": "hide-md"},
+        ],
+        "details": [
+            {"key": "variant"},
+            {"key": "transaction_type"},
+            {"key": "quantity"},
+            {"key": "unit_price"},
+            {"key": "discount"},
+            {"key": "total_amount"},
+            {"key": "transaction_date"},
         ],
         "actions": ["edit", "delete"],
         "model_key": "transaction",
@@ -520,6 +593,20 @@ class StockTransactionDeleteView(LoginRequiredMixin, View):
         transaction.soft_delete()
         messages.success(request, "Transaction deleted successfully.")
         return redirect("dashboard:transaction_list")
+
+class StockTransactionDetailView(LoginRequiredMixin, Detail):
+    model = StockTransaction
+
+    detail_fields = [
+        {"key": "variant"},
+        {"key": "transaction_type"},
+        {"key": "quantity"},
+        {"key": "unit_price"},
+        {"key": "discount"},
+        {"key": "total_amount"},
+        {"key": "transaction_date"},
+        {"key": "notes"},
+    ]
 
 class TrashListView(LoginRequiredMixin, Search, ListView):
     template_name = "dashboard/trash_list.html"
