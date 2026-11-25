@@ -2,7 +2,7 @@
 
 ### Installation
 ```bash
-git clone https://github.com/yarshabyte/greenstar_inventory_mgmt.git
+git clone https://github.com/amritxyz/inventory_mgmt.git
 cd greenstar_inventory_mgmt
 make install
 ```
